@@ -49,9 +49,12 @@ button{cursor:pointer}
 .sr{position:absolute;width:1px;height:1px;overflow:hidden;clip:rect(0 0 0 0);white-space:nowrap}
 
 /* Plan de travail */
-.viewport{--gridc:rgba(var(--flash-rgb),calc(.08 + var(--flash)*.28));position:fixed;inset:0;z-index:0;overflow:hidden;touch-action:none;background-color:var(--bg);background-image:linear-gradient(var(--gridc) 1px,transparent 1px),linear-gradient(90deg,var(--gridc) 1px,transparent 1px);background-size:26px 26px;cursor:grab}
+/* La grille (derrière) et la lueur (devant) sont des calques à part : leurs variables changent à chaque image,
+   et les poser sur la racine ferait recalculer le style de toutes les cases (lags avec beaucoup de blocs) */
+.vbg{--gridc:rgba(var(--flash-rgb),calc(.08 + var(--flash)*.28));position:fixed;inset:0;z-index:0;pointer-events:none;background-color:var(--bg);background-image:linear-gradient(var(--gridc) 1px,transparent 1px),linear-gradient(90deg,var(--gridc) 1px,transparent 1px);background-size:26px 26px}
+.viewport{position:fixed;inset:0;z-index:0;overflow:hidden;touch-action:none;cursor:grab}
 .viewport.panning{cursor:grabbing}
-.viewport::after{content:"";position:absolute;inset:0;pointer-events:none;background:radial-gradient(90% 60% at 50% 115%,rgba(var(--flash-rgb),.38),transparent 62%),radial-gradient(70% 50% at 50% -10%,rgba(255,79,139,.22),transparent 60%);opacity:calc(.12 + var(--lvl)*2 + var(--flash)*.7)}
+.vglow{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(90% 60% at 50% 115%,rgba(var(--flash-rgb),.38),transparent 62%),radial-gradient(70% 50% at 50% -10%,rgba(255,79,139,.22),transparent 60%);opacity:calc(.12 + var(--lvl)*2 + var(--flash)*.7)}
 .strobe{position:fixed;inset:0;z-index:5;pointer-events:none;background:radial-gradient(circle at 50% 45%,rgba(255,241,232,.95),rgba(255,79,139,.5) 38%,transparent 72%);opacity:calc(var(--strobe)*.14);mix-blend-mode:screen}
 .mascot{flex:none;overflow:visible;filter:drop-shadow(0 0 5px var(--title));transition:opacity .2s}
 #mascot{transform-box:fill-box;transform-origin:50% 100%}
@@ -500,7 +503,9 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 
 <div class="strobe" aria-hidden="true"></div>
 <div class="edge-light" aria-hidden="true"></div>
+<div class="vbg" id="vbg" aria-hidden="true"></div>
 <main class="viewport" id="viewport" data-drop="canvas" aria-label="Plan de travail"><div class="world" id="canvas"></div></main>
+<div class="vglow" aria-hidden="true"></div>
 
 <div class="island isl-brand">
   <div class="brand">
@@ -823,7 +828,7 @@ function redo(){
 
 /* ---------- Helpers ---------- */
 var $ = function(s){ return document.querySelector(s); };
-var viewport=$('#viewport'), canvas=$('#canvas'), bar=$('#actionbar'), codeEl=$('#code'),
+var viewport=$('#viewport'), vbg=$('#vbg'), canvas=$('#canvas'), bar=$('#actionbar'), codeEl=$('#code'),
     pop=$('#pop'), toastEl=$('#toast'), ghost=$('#ghost'), palette=$('#palette');
 function esc(s){ return String(s).replace(/[&<>"']/g, function(c){ return {'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]; }); }
 function fmt(v){ return String(Math.round(v*1000)/1000); }
@@ -857,8 +862,8 @@ function applyView(){
   clampView();
   canvas.style.transform = 'translate('+V.tx+'px,'+V.ty+'px) scale('+V.z+')';
   var g = 26*V.z;
-  viewport.style.backgroundSize = g+'px '+g+'px';
-  viewport.style.backgroundPosition = V.tx+'px '+V.ty+'px';
+  vbg.style.backgroundSize = g+'px '+g+'px';
+  vbg.style.backgroundPosition = V.tx+'px '+V.ty+'px';
 }
 function zoomAt(cx, cy, nz){
   nz = Math.max(ZMIN, Math.min(ZMAX, nz));
@@ -1163,6 +1168,15 @@ function renderCanvas(){
   applySolo();
   boundsCache = bounds();
   applyView();
+  indexCanvas();
+}
+/* Index des cases et lignes affichées, pour que la tête de lecture ne cherche pas dans tout le plan à chaque image */
+var cellIdx = {}, lineIdx = {}, blockIdx = {}, nowOn = {}, linesOn = {};
+function indexCanvas(){
+  cellIdx = {}; lineIdx = {}; blockIdx = {}; nowOn = {}; linesOn = {};
+  canvas.querySelectorAll('.cell[data-key]').forEach(function(el){ cellIdx[el.dataset.key] = el; });
+  canvas.querySelectorAll('.b-line').forEach(function(el){ lineIdx[el.dataset.lkey] = el; });
+  canvas.querySelectorAll('.nblk[data-b], .row[data-b]').forEach(function(el){ if (!blockIdx[el.dataset.b]) blockIdx[el.dataset.b] = el; });
 }
 function validSel(){
   if (!sel) return false;
@@ -2381,6 +2395,7 @@ function stop(){
   songFrame(null);
   canvas.querySelectorAll('.is-now').forEach(function(el){ el.classList.remove('is-now'); });
   canvas.querySelectorAll('.is-playing').forEach(function(el){ el.classList.remove('is-playing'); });
+  nowOn = {}; linesOn = {};
   var b = $('#play'); b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Lecture');
   if (soundHint) audioLockCheck();
 }
@@ -2406,12 +2421,17 @@ function preview(b, v){
 }
 
 /* Playhead + level */
-var lvl = 0, tbuf = null, root = document.documentElement;
+var lvl = 0, tbuf = null;
+var fxEls = null;
+function setFx(name, v){
+  if (!fxEls) fxEls = [vbg, document.querySelector('.vglow'), document.querySelector('.strobe'), document.querySelector('.edge-light'), $('#play')];
+  for (var i=0;i<fxEls.length;i++) if (fxEls[i]) fxEls[i].style.setProperty(name, v);
+}
 var flash = 0, strobe = 0, reduceMotion = window.matchMedia && window.matchMedia('(prefers-reduced-motion: reduce)').matches;
 function pulseBlock(id){
   if (reduceMotion) return;
-  var el = canvas.querySelector('.nblk[data-b="'+id+'"]') || canvas.querySelector('.row[data-b="'+id+'"]');
-  if (!el || !el.animate) return;
+  var el = blockIdx[id];
+  if (!el || !el.animate || !el.isConnected) return;
   /* juste un éclat de lumière : aucun mouvement, sinon les blocs tremblent et deviennent difficiles à toucher */
   el.animate([{filter:'brightness(1.4) saturate(1.2)'}, {filter:'brightness(1) saturate(1)'}], {duration:220, easing:'ease-out'});
 }
@@ -2518,28 +2538,28 @@ function frame(){
         pulseBlock(e.id);
         if (e.kick) strobe = 1;
         flash = Math.min(1, flash + (e.type==='s' ? .45 : .3));
-        root.style.setProperty('--flash-rgb', e.type==='s' ? '255,138,61' : '185,148,255');
+        setFx('--flash-rgb', e.type==='s' ? '255,138,61' : '185,148,255');
       } else keep.push(e);
     }
     vq = keep;
   }
   flash *= .86; strobe *= .8;
-  root.style.setProperty('--flash', flash.toFixed(3));
-  root.style.setProperty('--strobe', (reduceMotion ? 0 : strobe).toFixed(3));
+  setFx('--flash', flash.toFixed(3));
+  setFx('--strobe', (reduceMotion ? 0 : strobe).toFixed(3));
   dance(now);
   if (!playing || !ctx) {
-    if (lvl > .001){ lvl *= .9; root.style.setProperty('--lvl', lvl.toFixed(3)); }
+    if (lvl > .001){ lvl *= .9; setFx('--lvl', lvl.toFixed(3)); }
     return;
   }
   if (!tbuf) tbuf = new Uint8Array(analyser.fftSize);
   analyser.getByteTimeDomainData(tbuf);
   var sum = 0; for (var i=0;i<tbuf.length;i++){ var x = (tbuf[i]-128)/128; sum += x*x; }
   lvl = Math.max(Math.sqrt(sum/tbuf.length), lvl*.88);
-  root.style.setProperty('--lvl', Math.min(.5, lvl).toFixed(3));
+  setFx('--lvl', Math.min(.5, lvl).toFixed(3));
 
   var pos = (now - startT)/cycleDur();
   if (pos < 0) return;
-  root.style.setProperty('--edge-a', ((pos*90) % 360).toFixed(1) + 'deg');
+  setFx('--edge-a', ((pos*90) % 360).toFixed(1) + 'deg');
   var want = {}, wantLines = {}, sNow = songOn() ? songAt(pos) : null;
   songFrame(sNow);
   P.stacks.forEach(function(st){
@@ -2558,9 +2578,11 @@ function frame(){
       }
     });
   });
-  canvas.querySelectorAll('.cell.is-now').forEach(function(el){ if (!want[el.dataset.key]) el.classList.remove('is-now'); });
-  Object.keys(want).forEach(function(key){ var el = canvas.querySelector('[data-key="'+key+'"]'); if (el) el.classList.add('is-now'); });
-  canvas.querySelectorAll('.b-line').forEach(function(el){ el.classList.toggle('is-playing', !!wantLines[el.dataset.lkey]); });
+  var key;
+  for (key in nowOn) if (!want[key]){ if (cellIdx[key]) cellIdx[key].classList.remove('is-now'); delete nowOn[key]; }
+  for (key in want) if (!nowOn[key]){ if (cellIdx[key]) cellIdx[key].classList.add('is-now'); nowOn[key] = 1; }
+  for (key in linesOn) if (!wantLines[key]){ if (lineIdx[key]) lineIdx[key].classList.remove('is-playing'); delete linesOn[key]; }
+  for (key in wantLines) if (!linesOn[key]){ if (lineIdx[key]) lineIdx[key].classList.add('is-playing'); linesOn[key] = 1; }
 }
 requestAnimationFrame(frame);
 
@@ -4137,7 +4159,6 @@ setCode(isWide());
 loadDemo();
 updateDelay();
 renderAll();
-if (hist.length) toast('Ton dernier projet est à un ↶ près', 3500);
 autoStart();
 syncPalH();
 fitView();
