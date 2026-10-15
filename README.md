@@ -2,7 +2,7 @@
 
 Compose de la musique en emboîtant des blocs : le vrai code [Strudel](https://strudel.cc) s'écrit tout seul.
 
-**Essayer :** https://TON-PSEUDO.github.io/blocktobeat/
+**Essayer :** https://Mtoulliou.github.io/blocktobeat/
 
 ## Contenu
 
