@@ -5,7 +5,7 @@ const VERSION = 'blocktobeat-local';
    (sinon elles s'effaceraient l'une l'autre) et la version principale ne touche pas aux pages de dev/. */
 const BASE = new URL('./', location).pathname;
 const CACHE = VERSION + '@' + BASE;
-const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png'];
+const SHELL = ['./', './index.html', './manifest.webmanifest', './icon.svg', './icon-192.png', './icon-512.png', './icon-180.png', './library.js', './library.css'];
 
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting()));

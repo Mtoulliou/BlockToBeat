@@ -1,0 +1,39 @@
+/* BlockToBeat : Library (#20). Utilise les couleurs et polices définies dans index.html (:root). */
+#pg-library{justify-content:flex-start;align-items:stretch;gap:0;padding:0;text-align:left;overflow-y:auto;-webkit-overflow-scrolling:touch}
+#pg-library svg{color:inherit}   /* la page « En travaux » colorait toutes les icônes en rose */
+.lib{width:100%;max-width:720px;margin:0 auto;padding:calc(var(--gt) + 8px) 16px 24px;box-sizing:border-box}
+.lib-head{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;margin-bottom:14px}
+.lib-head h2{margin:0;font-family:var(--f-display);font-size:28px;color:var(--fg)}
+.lib-actions{display:flex;gap:8px}
+.lib-btn{height:38px;padding:0 14px;border-radius:11px;border:1px solid var(--line-2);background:var(--panel);color:var(--fg);display:inline-flex;align-items:center;gap:6px;font-family:var(--f-body);font-weight:700;font-size:13px;cursor:pointer}
+.lib-btn--main{background:var(--title);border-color:var(--title);color:var(--title-ink)}
+.lib-folders{display:flex;gap:8px;overflow-x:auto;padding-bottom:4px;margin-bottom:12px;scrollbar-width:none}
+.lib-chip{flex:none;height:34px;padding:0 14px;border-radius:999px;border:1px solid var(--line-2);background:transparent;color:var(--muted);font-family:var(--f-body);font-weight:700;font-size:13px;cursor:pointer;white-space:nowrap}
+.lib-chip span{opacity:.6;font-weight:600;margin-left:2px}
+.lib-chip[aria-selected="true"]{background:var(--fg);border-color:var(--fg);color:var(--bg)}
+.lib-folder-bar{display:flex;align-items:center;justify-content:space-between;margin:-2px 0 10px;color:var(--muted);font-weight:700;font-size:14px}
+.lib-folder-bar span{display:inline-flex;align-items:center;gap:6px}
+.lib-empty{margin:40px auto 0;max-width:320px;text-align:center;color:var(--muted);font-size:14px;line-height:1.5}
+#pg-library .lib-empty svg{vertical-align:-2px;color:var(--title)}
+.lib-list{list-style:none;margin:0;padding:0;display:grid;gap:10px}
+@media (min-width:640px){ .lib-list{grid-template-columns:repeat(2,minmax(0,1fr))} }
+.lib-card{position:relative;display:flex;align-items:stretch;border-radius:16px;background:var(--panel);border:1px solid var(--line)}
+.lib-card.is-open{border-color:var(--title);box-shadow:0 0 0 1px var(--title)}
+.lib-open{flex:1;min-width:0;display:flex;flex-direction:column;gap:4px;padding:14px 4px 14px 16px;border:0;background:transparent;color:var(--fg);text-align:left;font-family:var(--f-body);cursor:pointer}
+.lib-open strong{font-family:var(--f-display);font-size:17px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.lib-open span{color:var(--muted);font-size:13px}
+.lib-open em{font-style:normal;color:var(--title);font-weight:700}
+.lib-open small{color:var(--dim);font-size:12px}
+.lib-more{flex:none;width:44px;border:0;background:transparent;color:var(--muted);display:flex;align-items:center;justify-content:center;border-radius:12px;cursor:pointer}
+.lib-folder-bar .lib-more{height:34px}
+/* Feuille d'actions, au-dessus de la barre de navigation */
+.lib-sheet{position:fixed;inset:0;z-index:1150;display:flex;align-items:flex-end;justify-content:center;background:rgba(12,5,10,.6)}
+.lib-sheet[hidden]{display:none}
+.lib-sheet-box{width:min(440px,100%);margin:0;padding:14px 14px calc(14px + env(safe-area-inset-bottom,0px));box-sizing:border-box;border-radius:20px 20px 0 0;background:var(--panel);border:1px solid var(--line);display:flex;flex-direction:column;gap:8px}
+@media (min-width:640px){ .lib-sheet{align-items:center} .lib-sheet-box{border-radius:20px} }
+.lib-sheet-title{margin:2px 4px 6px;color:var(--fg);font-family:var(--f-display);font-weight:700;font-size:16px;line-height:1.35}
+.lib-sheet-btn{height:46px;border-radius:12px;border:0;background:var(--panel-2);color:var(--fg);font-family:var(--f-body);font-weight:700;font-size:15px;cursor:pointer}
+.lib-sheet-btn.main{background:var(--title);color:var(--title-ink)}
+.lib-sheet-btn.danger{color:var(--danger)}
+.lib-sheet-btn.cancel{background:transparent;color:var(--muted)}
+.lib-input{height:46px;padding:0 14px;border-radius:12px;border:1px solid var(--line-2);background:var(--bg);color:var(--fg);font-family:var(--f-body);font-size:16px}
