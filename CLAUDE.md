@@ -24,7 +24,7 @@ Auteur : Mattéo (Matteo) Toulliou, apprenti ingénieur chez Orange. Il écrit e
   - `dev` (version de test) : https://mtoulliou.github.io/BlockToBeat/dev/ (s'installe comme une app à part, « BlockToBeat (dev) »)
 - Dev et main partagent le même site : `sw.js` sépare les caches par dossier, et la clé `localStorage` du projet prend le suffixe `-dev` sous `/dev/`. Ne casse pas cette séparation.
 - C'est une PWA : `manifest.webmanifest`, `sw.js` (cache), icônes à la racine (pas de dossier `icons/`, Matteo ne pouvait pas importer de dossier depuis le web).
-- **À chaque modif de `index.html`, incrémente `VERSION` dans `sw.js`** (`blocktobeat-v1` → `blocktobeat-v2`…), sinon les téléphones gardent l'ancienne version en cache.
+- `VERSION` dans `sw.js` est remplacée automatiquement au déploiement par le numéro du commit : ne l'incrémente plus à la main.
 - Pas de build : tout est dans un seul fichier `index.html` (HTML + CSS + JS, aucune dépendance sauf Google Fonts).
 - Licence prévue : AGPL (comme Strudel).
 
@@ -33,8 +33,11 @@ Auteur : Mattéo (Matteo) Toulliou, apprenti ingénieur chez Orange. Il écrit e
 1. **Ne jamais commiter directement sur `main`.** Seul Matteo fusionne dans `main`, depuis GitHub, après avoir testé la version dev.
 2. Tout part de la branche `dev`. Pour chaque issue GitHub, crée une branche depuis `dev` à jour : `fix/<numéro>-<mot-clé>` (bug) ou `feat/<numéro>-<mot-clé>` (fonctionnalité demandée). Hors issue : `chore/<mot-clé>`.
 3. Une issue = une branche = des commits ciblés. Le message de commit cite l'issue (`Corrige #4 : ...`).
-4. Teste (Playwright, voir « Tests »), incrémente `VERSION` dans `sw.js` si `index.html` change, puis fusionne la branche dans `dev` (`git merge --no-ff`) et pousse `dev`. La Pages dev se met à jour toute seule.
-5. Quand un lot de corrections est prêt, ouvre (ou mets à jour) **une pull request `dev` → `main`** qui liste les issues avec `Closes #N`, pour que Matteo la teste sur la version dev puis la fusionne lui-même.
+4. Teste (Playwright, voir « Tests »), puis fusionne la branche dans `dev` (`git merge --no-ff`) et pousse `dev`. La Pages dev se met à jour toute seule.
+5. Les pull requests partent des branches de travail, pas de `dev` (qui peut contenir du travail en cours) :
+   - un lot de petites issues : branche de lot `lot/<numéros>` créée depuis `main`, où l'on fusionne les branches des issues ; PR `lot/...` → `main` ;
+   - un gros chantier (ex. #20) : branche longue `feat/<numéro>-<mot-clé>` depuis `main`, PR en brouillon vers `main` mise à jour au fil du travail.
+   Chaque branche est aussi fusionnée dans `dev` pour être testée en ligne. Les PR listent les issues avec `Closes #N`, Matteo les teste sur la version dev puis les fusionne lui-même.
 6. Ne ferme pas les issues à la main : elles se ferment quand Matteo fusionne la PR dans `main`.
 7. Si une issue est floue, fais au plus simple et raisonnable, puis signale-le dans le compte rendu et dans la PR plutôt que d'inventer une fonctionnalité.
 
