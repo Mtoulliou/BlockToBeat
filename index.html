@@ -104,10 +104,10 @@ button{cursor:pointer}
 .sound-hint{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(12,5,10,.78);cursor:pointer;touch-action:none}
 .sound-hint[hidden]{display:none}
 /* Mini tuto « ajouter à l'écran d'accueil », dans le bas de l'écran de lancement, seulement hors de l'app installée */
-.sh-tuto{position:absolute;left:50%;bottom:calc(var(--gb) + 36px);transform:translateX(-50%);width:min(340px,calc(100% - 64px));box-sizing:border-box;padding:14px 16px;border-radius:16px;background:var(--panel);border:1px solid var(--line-2);color:var(--fg);text-align:left;cursor:default}
+.sh-tuto{position:absolute;left:50%;bottom:calc(var(--gb) + 36px);transform:translateX(-50%);width:min(340px,calc(100% - 64px));box-sizing:border-box;color:var(--fg);text-align:center;cursor:default}
 .sh-tuto[hidden]{display:none}
 .sh-tuto strong{display:block;margin-bottom:8px;font-family:var(--f-display);font-size:15px}
-.sh-tuto ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:13.5px;line-height:1.4}
+.sh-tuto ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:13.5px;line-height:1.4;text-wrap:balance}
 .sh-tuto b{color:var(--fg)}
 .sh-tuto svg{vertical-align:-3px;color:var(--fg)}
 .sh-tuto .sh-install{margin-top:10px;width:100%;height:40px;border:0;border-radius:11px;background:var(--title);color:var(--title-ink);font-family:var(--f-body);font-weight:800;font-size:14px;cursor:pointer}
