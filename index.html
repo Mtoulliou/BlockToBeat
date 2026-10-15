@@ -39,7 +39,13 @@
   --f-mono:'JetBrains Mono',ui-monospace,'SFMono-Regular',Menlo,Consolas,monospace;
   --cell:48px; --ncell:38px; --cellh:38px; --lvl:0; --flash:0; --strobe:0; --flash-rgb:255,79,139;
   --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
-  --gt:calc(14px + env(safe-area-inset-top,0px)); --navh:58px; --gb:calc(14px + var(--navh) + env(safe-area-inset-bottom,0px));
+  /* Bords de l'écran (iPhone : Dynamic Island ou encoche en haut, barre d'accueil en bas).
+     --gt : les îles du haut juste sous l'encoche, sans la marge en plus d'avant.
+     --sb : en bas, la zone réservée par le système (~34 px en app installée) ne garde que ce qu'il faut
+     pour que la barre de navigation ne touche pas le trait d'accueil : pas de vide inutile. */
+  --gt:max(10px, calc(env(safe-area-inset-top,0px) - 4px));
+  --sb:max(0px, calc(env(safe-area-inset-bottom,0px) - 22px));
+  --navh:58px; --gb:calc(14px + var(--navh) + var(--sb));
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -82,12 +88,12 @@ button{cursor:pointer}
 .rec-btn[aria-pressed="true"] .rec-dot,.rec-live .rec-dot{animation:recblink 1s steps(2) infinite}
 @keyframes recblink{50%{opacity:.2}}
 /* Barre de navigation : Learning, Lab (le plan de travail), Library, Profile */
-.nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;height:calc(var(--navh) + env(safe-area-inset-bottom,0px));padding-bottom:env(safe-area-inset-bottom,0px);box-sizing:border-box;display:flex;justify-content:center;background:rgb(23,10,19);border-top:1px solid var(--line)}
+.nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;height:calc(var(--navh) + var(--sb));padding-bottom:var(--sb);box-sizing:border-box;display:flex;justify-content:center;background:rgb(23,10,19);border-top:1px solid var(--line)}
 .nav-btn{flex:1;max-width:140px;border:0;background:transparent;color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-family:var(--f-body);font-weight:700;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent}
 .nav-btn svg{transition:transform .15s}
 .nav-btn[aria-current="page"]{color:var(--title)}
 .nav-btn[aria-current="page"] svg{transform:translateY(-1px)}
-.nav-page{position:fixed;left:0;right:0;top:0;bottom:calc(var(--navh) + env(safe-area-inset-bottom,0px));z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:var(--bg)}
+.nav-page{position:fixed;left:0;right:0;top:0;bottom:calc(var(--navh) + var(--sb));z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:var(--bg)}
 .nav-page[hidden]{display:none}
 .nav-page svg{color:var(--title)}
 .nav-page h2{margin:0;font-family:var(--f-display);font-size:26px;color:var(--fg)}
