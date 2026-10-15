@@ -166,7 +166,8 @@ body.is-playing .edge-light{opacity:1}
 @keyframes expbusy{50%{transform:translateY(3px)}}
 .s-lines{display:flex;flex-direction:column;gap:4px;padding:2px 0}
 .s-line{display:flex;align-items:center;gap:4px}
-.s-ln{font-family:var(--f-mono);font-size:10px;font-weight:800;opacity:.6;width:12px;text-align:center}
+.s-ln{flex:none;align-self:stretch;min-width:18px;padding:0 3px;border:0;border-radius:6px;background:transparent;color:inherit;font-family:var(--f-mono);font-size:10px;font-weight:800;opacity:.6;text-align:center;cursor:pointer}
+.s-ln.is-sel{opacity:1;background:var(--fg);color:var(--sound-ink)}
 .fx--raw{background:#4A3A46!important;color:var(--fg)!important;font-weight:700;font-size:12.5px}
 .b-code{background:#3A2A36;color:var(--fg);border:1.5px dashed var(--line-2);box-shadow:none}
 .b-code .b-key{font-size:15px;color:var(--muted)}
@@ -768,6 +769,11 @@ function locate(bid){
 function findBlock(sid, bid){ var l = locate(bid); return l ? l.b : null; }
 function sLines(b){ return [b.steps].concat(b.alt || []); }
 function blockLines(b){ return b.type==='s' ? sLines(b) : (b.lines || []); }
+/* remplace toutes les lignes d'un bloc (Son : la première est steps, les suivantes alt) */
+function setBlockLines(b, L){
+  if (b.type!=='s'){ b.lines = L; return; }
+  b.steps = L[0]; if (L.length > 1) b.alt = L.slice(1); else delete b.alt;
+}
 function arrOf(d){ var b = findBlock(d.s, d.b); if (!b) return null; return b.type==='s' ? sLines(b)[+d.l || 0] : b.lines[+d.l]; }
 function newBlock(t){
   if (t==='s') return {id:uid(), type:'s', muted:false, steps:['bd','~','~','~'], fx:[]};
@@ -1056,7 +1062,7 @@ function sHTML(st, b, z){
   return '<div class="row" data-bk="1" data-drop="block"'+attrs({s:st.id, b:b.id})+' style="z-index:'+z+'">'+
     '<div class="blk b-s'+(selIs('block',st.id,b.id)?' is-sel':'')+(b.muted?' is-muted':'')+'" data-drop="block" data-src="block"'+attrs({s:st.id, b:b.id})+'>'+
       '<button type="button" class="b-key" data-src="block"'+attrs({s:st.id, b:b.id})+' aria-label="Bloc son : sélectionner ou glisser">Son</button>'+
-      (b.alt && b.alt.length ? '<div class="s-lines">'+sLines(b).map(function(ln, li){ return '<div class="s-line"><span class="s-ln">'+(li+1)+'</span>'+slotHTML(st, b, li, ln)+'</div>'; }).join('')+'</div>' : slotHTML(st, b, 0, b.steps))+
+      (b.alt && b.alt.length ? '<div class="s-lines">'+sLines(b).map(function(ln, li){ return '<div class="s-line"><button type="button" class="s-ln'+(selIs('line',st.id,b.id,li)?' is-sel':'')+'" data-act="sline"'+attrs({s:st.id, b:b.id, l:li})+' aria-label="Ligne '+(li+1)+' : sélectionner">'+(li+1)+'</button>'+slotHTML(st, b, li, ln)+'</div>'; }).join('')+'</div>' : slotHTML(st, b, 0, b.steps))+
       '<span class="nub"></span>'+
     '</div>'+ fxHTML(st, b)+
   '</div>';
@@ -1146,7 +1152,7 @@ function validSel(){
   var st = findStack(sel.s); if (!st) return false;
   if (sel.k==='stack') return true;
   var b = findBlock(sel.s, sel.b); if (!b) return false;
-  if (sel.k==='line') return b.type==='n' && sel.l < b.lines.length;
+  if (sel.k==='line') return b.type!=='code' && sel.l < blockLines(b).length;
   return true;
 }
 /* Supprimer : toujours en premier, une poubelle rouge, pour ne jamais avoir à faire défiler la barre */
@@ -1186,9 +1192,9 @@ function renderActionBar(){
       (b.type!=='code' ? '<button type="button" class="ab-btn" data-ab="clear"'+(blockLines(b).every(function(ln){ return ln.every(function(x){ return x==='~'; }); })?' disabled':'')+'>Vider</button>' : '')+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   } else {
-    var nb = findBlock(sel.s, sel.b);
-    h = trashBtn('del', 'Supprimer la ligne', nb.lines.length<2)+'<span class="ab-label">Ligne '+(sel.l+1)+'</span>'+
-      '<button type="button" class="ab-btn" data-ab="clear"'+(nb.lines[sel.l].every(function(x){ return x==='~'; })?' disabled':'')+'>Vider</button>'+
+    var nb = findBlock(sel.s, sel.b), NL = blockLines(nb);
+    h = trashBtn('del', 'Supprimer la ligne', NL.length<2)+'<span class="ab-label">Ligne '+(sel.l+1)+'</span>'+
+      '<button type="button" class="ab-btn" data-ab="clear"'+(NL[sel.l].every(function(x){ return x==='~'; })?' disabled':'')+'>Vider</button>'+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   }
   bar.innerHTML = h + '<button type="button" class="ab-btn close" data-ab="close" aria-label="Fermer la sélection">✕</button>';
@@ -2824,6 +2830,7 @@ viewport.addEventListener('click', function(e){
     renderCanvas(); renderActionBar(); return;
   }
   if (d.act==='cell') openCellPicker(a);
+  if (d.act==='sline'){ selectFrom(a); return; }
   if (d.act==='rootpick') openRootPicker(a);
   if (d.act==='fxfold'){ var fb = findBlock(d.s, d.b); if (fb){ fb.fxFold = !fb.fxFold; persist(); renderCanvas(); } return; }
   else if (d.act==='fx') openFxPop(a);
@@ -2876,11 +2883,12 @@ bar.addEventListener('click', function(e){
     if (a==='dup') mutate(function(){ var c = cloneBlock(b); loc.s.blocks.splice(loc.i+1, 0, c); sel = {k:'block', s:loc.s.id, b:c.id}; });
     if (a==='del'){ mutate(function(){ loc.s.blocks.splice(loc.i, 1); sel = null; }); toast('Bloc supprimé. Annuler pour le récupérer.'); }
   } else {
-    var nb = findBlock(sel.s, sel.b), li = sel.l;
-    if (a==='addstep') mutate(function(){ if (nb.lines[li].length<16) nb.lines[li].push('~'); });
-    if (a==='clear'){ mutate(function(){ nb.lines[li] = nb.lines[li].map(function(){ return '~'; }); }); toast('Ligne vidée. Annuler pour récupérer les notes.'); }
-    if (a==='dup') mutate(function(){ nb.lines.splice(li+1, 0, nb.lines[li].slice()); sel = {k:'line', s:sel.s, b:sel.b, l:li+1}; });
-    if (a==='del' && nb.lines.length>1) mutate(function(){ nb.lines.splice(li, 1); sel = null; });
+    /* ligne d'un bloc Mélo ou d'un bloc Son à plusieurs lignes */
+    var nb = findBlock(sel.s, sel.b), li = sel.l, NL = blockLines(nb).slice();
+    if (a==='addstep') mutate(function(){ if (NL[li].length<16) NL[li].push('~'); });
+    if (a==='clear'){ mutate(function(){ NL[li] = NL[li].map(function(){ return '~'; }); setBlockLines(nb, NL); }); toast('Ligne vidée. Annuler pour la récupérer.'); }
+    if (a==='dup') mutate(function(){ NL.splice(li+1, 0, NL[li].slice()); setBlockLines(nb, NL); sel = {k:'line', s:sel.s, b:sel.b, l:li+1}; });
+    if (a==='del' && NL.length>1) mutate(function(){ NL.splice(li, 1); setBlockLines(nb, NL); sel = null; });
   }
 });
 function commitRename(){
@@ -2981,11 +2989,11 @@ function onPaletteTap(p){
       toast(p.k==='sound' ? 'Sélectionne un bloc Son, ou glisse ce son dedans.' : p.k==='note' ? 'Sélectionne une ligne de notes, ou glisse cette note dedans.' : 'Sélectionne une ligne, ou glisse ce silence dedans.');
       return;
     }
-    var tgt = b.type==='s' ? b.steps : (sel.k==='line' ? b.lines[sel.l] : b.lines[b.lines.length-1]);
+    var tgt = b.type==='s' ? sLines(b)[sel.k==='line' ? sel.l : 0] : (sel.k==='line' ? b.lines[sel.l] : b.lines[b.lines.length-1]);
     if (tgt.length>=16){ toast('Une ligne compte 16 pas au maximum.'); return; }
     mutate(function(){
       var bb = findBlock(sel.s, sel.b);
-      var t = bb.type==='s' ? bb.steps : (sel.k==='line' ? bb.lines[sel.l] : bb.lines[bb.lines.length-1]);
+      var t = bb.type==='s' ? sLines(bb)[sel.k==='line' ? sel.l : 0] : (sel.k==='line' ? bb.lines[sel.l] : bb.lines[bb.lines.length-1]);
       t.push(p.v);
     });
     return;
