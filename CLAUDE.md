@@ -64,7 +64,7 @@ Un seul fichier d'environ 4 000 lignes. Repères (cherche le nom de la fonction)
 ### Interface
 - Plan de travail infini (pan + zoom), commandes en « îles » flottantes.
 - Menu du bas sur 2 lignes (onglets Sons / Notes / Blocs). Onglet Notes : choix de l'instrument + pads façon REC + mode accords.
-- REC : simple bouton, le menu du bas devient le pad. Attend la première note, nouvelle ligne à chaque boucle, métronome, appui long = note tenue (0,3 s minimum).
+- REC : simple bouton, le menu du bas devient le pad. Attend la première note, nouvelle ligne à chaque boucle, métronome, appui long = note tenue. Une note suivie par doigt ou touche (`recHolds`), notes simultanées sur un même pas = accord, la boucle ne rejoue pas une note qu'on vient d'entendre en direct (`rec.fresh`), et le son pendant la prise est celui de la relecture.
 - Gestes : appui long = solo, double tap = muet, étirer une note pour l'allonger.
 - Mode Morceau : timeline multi-lignes (`songLanes`, `songAt`).
 - Les groupes ne se chevauchent jamais (`resolveOverlaps`) et se déplacent en entier.
