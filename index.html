@@ -106,9 +106,8 @@ button{cursor:pointer}
 /* Mini tuto « ajouter à l'écran d'accueil », dans le bas de l'écran de lancement, seulement hors de l'app installée */
 .sh-tuto{position:absolute;left:50%;bottom:calc(var(--gb) + 36px);transform:translateX(-50%);width:min(340px,calc(100% - 64px));box-sizing:border-box;color:var(--fg);text-align:center;cursor:default}
 .sh-tuto[hidden]{display:none}
-.sh-tuto strong{display:block;margin-bottom:8px;font-family:var(--f-display);font-size:15px}
-.sh-tuto ol{margin:0;padding:0;list-style:none;display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:13.5px;line-height:1.4;text-wrap:balance}
-.sh-tuto b{color:var(--fg)}
+.sh-tuto strong{display:block;margin-bottom:4px;font-family:var(--f-display);font-size:15px}
+.sh-tuto .sh-steps{margin:0;color:var(--muted);font-family:var(--f-body);font-weight:600;font-size:13.5px;line-height:1.4;max-width:none}
 .sh-tuto svg{vertical-align:-3px;color:var(--fg)}
 .sh-tuto .sh-install{margin-top:10px;width:100%;height:40px;border:0;border-radius:11px;background:var(--title);color:var(--title-ink);font-family:var(--f-body);font-weight:800;font-size:14px;cursor:pointer}
 .sound-hint p{margin:0;max-width:280px;color:var(--fg);font-family:var(--f-display);font-weight:700;font-size:18px;line-height:1.35;text-align:center;text-wrap:balance}
@@ -4162,24 +4161,24 @@ function installSteps(){
   var share = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Partager"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 11v9h12v-9"/></svg>';
   var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   if (ios){
-    if (/CriOS/.test(ua)) return ['Touche '+share+' en haut à droite, dans la barre d’adresse.', 'Choisis <b>Sur l’écran d’accueil</b>.'];
-    if (/FxiOS/.test(ua)) return ['Touche le menu <b>☰</b>.', 'Choisis <b>Partager</b>, puis <b>Sur l’écran d’accueil</b>.'];
-    if (/EdgiOS|OPiOS|OPT\/|GSA\//.test(ua)) return ['Ouvre cette page dans <b>Safari</b>.', 'Touche '+share+', puis <b>Sur l’écran d’accueil</b>.'];
-    return ['Touche '+share+' en bas de l’écran (sur iOS récent, il est dans le menu <b>•••</b>).', 'Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.'];
+    if (/CriOS/.test(ua)) return [share+' en haut', 'Sur l’écran d’accueil'];
+    if (/FxiOS/.test(ua)) return ['Menu ☰', 'Partager', 'Sur l’écran d’accueil'];
+    if (/EdgiOS|OPiOS|OPT\/|GSA\//.test(ua)) return ['Ouvre dans Safari', share, 'Sur l’écran d’accueil'];
+    return [share+' (ou •••)', 'Sur l’écran d’accueil'];
   }
   if (/Android/.test(ua)){
-    if (/SamsungBrowser/.test(ua)) return ['Touche le menu <b>☰</b> en bas.', 'Choisis <b>Ajouter la page à</b>, puis <b>Écran d’accueil</b>.'];
-    if (/Firefox/.test(ua)) return ['Touche le menu <b>⋮</b>.', 'Choisis <b>Installer</b> ou <b>Ajouter à l’écran d’accueil</b>.'];
-    if (/EdgA/.test(ua)) return ['Touche le menu <b>•••</b> en bas.', 'Choisis <b>Ajouter au téléphone</b>.'];
-    if (/OPR\//.test(ua)) return ['Touche le menu <b>⋮</b>.', 'Choisis <b>Écran d’accueil</b>.'];
-    return ['Touche le menu <b>⋮</b> en haut à droite.', 'Choisis <b>Ajouter à l’écran d’accueil</b> ou <b>Installer l’application</b>.'];
+    if (/SamsungBrowser/.test(ua)) return ['Menu ☰', 'Ajouter la page à', 'Écran d’accueil'];
+    if (/Firefox/.test(ua)) return ['Menu ⋮', 'Installer'];
+    if (/EdgA/.test(ua)) return ['Menu •••', 'Ajouter au téléphone'];
+    if (/OPR\//.test(ua)) return ['Menu ⋮', 'Écran d’accueil'];
+    return ['Menu ⋮', 'Ajouter à l’écran d’accueil'];
   }
   return null;   /* ordinateur : pas de tuto */
 }
 function renderInstallTuto(){
   var box = $('#shTuto'), steps = installSteps();
   if (!steps){ box.hidden = true; return; }
-  box.innerHTML = '<strong>Ajoute BlockToBeat à ton écran d’accueil</strong><ol>'+steps.map(function(t){ return '<li>'+t+'</li>'; }).join('')+'</ol>'+
+  box.innerHTML = '<strong>Installe l’app</strong><p class="sh-steps">'+steps.join(' <span aria-hidden="true">›</span> ')+'</p>'+
     (window.btbInstallPrompt ? '<button type="button" class="sh-install">Installer l’app</button>' : '');
   box.hidden = false;
 }
