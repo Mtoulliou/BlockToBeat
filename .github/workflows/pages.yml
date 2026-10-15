@@ -13,9 +13,11 @@ permissions:
   pages: write
   id-token: write
 
+# Les déploiements passent chacun leur tour : en annuler un peut annuler l'autre
+# quand main et dev pointent sur le même commit (même identifiant de déploiement)
 concurrency:
   group: pages
-  cancel-in-progress: true
+  cancel-in-progress: false
 
 jobs:
   deploy:
