@@ -392,6 +392,9 @@ body.rec-on .isl-song{display:none}
 .chord-row button{height:34px;border-radius:9px;border:0;background:var(--panel-2);color:var(--muted);font-weight:700;font-size:12.5px}
 .chord-row button[aria-pressed="true"]{background:var(--note);color:var(--note-ink)}
 .chord-hint{margin:-4px 0 8px}
+.chord-row--2{grid-template-columns:repeat(2,1fr)}
+.pick--chord span{font-family:var(--f-body);font-size:14px}
+.pick--chord small{white-space:nowrap}
 .chord-tog{flex:none;height:34px;padding:0 12px;border-radius:9px;border:0;background:var(--panel-2);color:var(--muted);font-weight:700;font-size:12.5px;box-shadow:inset 0 0 0 1.5px var(--line-2)}
 .chord-tog[aria-pressed="true"]{background:var(--note);color:var(--note-ink);box-shadow:none}
 .chip.chip--chord{flex-direction:column;line-height:1;gap:2px;height:auto;min-height:40px;padding:4px 2px;font-family:var(--f-body);font-size:12.5px;white-space:nowrap}
@@ -2518,19 +2521,27 @@ function showPop(anchor){
   var first = pop.querySelector('button:not([disabled]), input'); if (first) first.focus({preventScroll:true});
 }
 function closePop(){ pop.hidden = true; pop.onclick = null; pop.oninput = null; pop.innerHTML = ''; }
+/* Menu d'un pas Mélo : « Notes » ou « Accords », comme l'onglet Notes. Le choix reste le temps qu'on travaille sur ce pas. */
+var cellChord = null;
 function openCellPicker(cell){
-  var d = {s:cell.dataset.s, b:cell.dataset.b, l:cell.dataset.l, i:cell.dataset.i};
+  var d = {s:cell.dataset.s, b:cell.dataset.b, l:cell.dataset.l, i:cell.dataset.i}, ckey = d.b+':'+d.l+':'+d.i;
   var b = findBlock(d.s, d.b); if (!b) return;
   var isN = b.type==='n', arr = arrOf(d), i = +d.i, cur = arr[i];
   var opts = isN ? degList(b) : SOUNDS.map(function(s){ return s.v; });
   var canLen = isN && cur!=='~' && cur!=='_', hl = canLen ? holdLen(arr, i) : 0;
-  var parts = canLen ? String(cur).split(',') : [], isChord = parts.length > 1, base0 = canLen ? Math.min.apply(null, parts.map(Number)) : 0;
-  var h = '<div class="pop-h"><strong>Pas '+(i+1)+'</strong><span>'+(isN ? 'ligne '+(+d.l+1)+' · degré' : 'son joué')+'</span></div>'+
-    (canLen ? '<div class="len-row"><button type="button" data-len="-1"'+(hl<1?' disabled':'')+'>◂ Plus courte</button><span>'+(hl+1)+' pas</span><button type="button" data-len="1"'+(!canGrow(arr, i)?' disabled':'')+'>Plus longue ▸</button></div>'+
-      '<div class="chord-row"><button type="button" data-ch="1" aria-pressed="'+(!isChord)+'">Note seule</button><button type="button" data-ch="3" aria-pressed="'+(parts.length===3)+'">Accord</button><button type="button" data-ch="4" aria-pressed="'+(parts.length===4)+'">Accord 7e</button></div>'+
-      (isChord ? '<p class="pop-sub chord-hint">Touche des notes pour les ajouter ou les retirer de l’accord.</p>' : '') : '')+
-    '<div class="pop-grid'+(isN?' pop-grid--n':'')+'">';
-  opts.forEach(function(o){
+  var parts = canLen ? String(cur).split(',') : [], isChord = parts.length > 1;
+  var chordMode = isN && (cellChord && cellChord.key===ckey ? cellChord.on : (isChord || palChord));
+  var ci = isChord ? chordInfo(b, cur) : null;
+  var h = '<div class="pop-h"><strong>Pas '+(i+1)+'</strong><span>'+(isN ? 'ligne '+(+d.l+1)+' · '+(ci ? esc((ci.name ? ci.name+' · ' : '')+ci.notes) : 'degré') : 'son joué')+'</span></div>'+
+    (canLen ? '<div class="len-row"><button type="button" data-len="-1"'+(hl<1?' disabled':'')+'>◂ Plus courte</button><span>'+(hl+1)+' pas</span><button type="button" data-len="1"'+(!canGrow(arr, i)?' disabled':'')+'>Plus longue ▸</button></div>' : '')+
+    (isN ? '<div class="chord-row chord-row--2"><button type="button" data-cmode="0" aria-pressed="'+(!chordMode)+'">Notes</button><button type="button" data-cmode="1" aria-pressed="'+chordMode+'">Accords</button></div>'+
+      (isChord && !chordMode ? '<p class="pop-sub chord-hint">Touche des notes pour les ajouter ou les retirer de l’accord.</p>' : '') : '')+
+    '<div class="pop-grid'+(isN && !chordMode?' pop-grid--n':'')+'">';
+  if (chordMode) degList(b).forEach(function(o){
+    var v = chordOn(+o, 3, b.scale), info = chordInfo(b, v);
+    h += '<button type="button" class="pick pick--n pick--chord'+(v===cur?' on':'')+'" data-pickchord="'+v+'" aria-label="Accord '+esc(info.name || 'sur le degré '+o)+' : '+esc(info.notes)+'"><span>'+esc(info.name || o)+'</span><small>'+esc(info.notes)+'</small></button>';
+  });
+  else opts.forEach(function(o){
     h += '<button type="button" class="pick '+(isN?'pick--n':'pick--s')+((isChord ? parts.indexOf(o) > -1 : o===cur)?' on':'')+'" data-pick="'+o+'"'+(isN?'':' data-snd="'+o+'"')+'><span>'+(isN?o:SOUND_FR[o])+'</span>'+(isN?'':'<small>'+SOUND_D[o]+'</small>')+'</button>';
   });
   h += '<button type="button" class="pick pick--rest'+(cur==='~'?' on':'')+'" data-pick="~"><span>·</span><small>Silence</small>'+'</button></div>'+
@@ -2544,12 +2555,14 @@ function openCellPicker(cell){
       var nc = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc) openCellPicker(nc); else closePop();
       return;
     }
-    var cb = e.target.closest('[data-ch]');
-    if (cb){
-      var nn = +cb.dataset.ch, nv = nn === 1 ? String(base0) : chordOn(base0, nn, b.scale);
+    var mb = e.target.closest('[data-cmode]');
+    if (mb){ cellChord = {key:ckey, on:mb.dataset.cmode==='1'}; openCellPicker(cell); return; }
+    var pc = e.target.closest('[data-pickchord]');
+    if (pc){
+      var nv = pc.dataset.pickchord;
       mutate(function(){ var a = arrOf(d); if (a) a[i] = nv; });
       preview(findBlock(d.s, d.b), nv);
-      var nc2 = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc2) openCellPicker(nc2); else closePop();
+      closePop();
       return;
     }
     var p = e.target.closest('[data-pick]'); if (!p || p.disabled) return;
