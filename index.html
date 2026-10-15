@@ -3075,8 +3075,18 @@ function cleanupDrag(){
 document.addEventListener('pointermove', function(e){
   if (!drag || e.pointerId!==drag.pid) return;
   if (pinch){ drag = null; return; }
+  if (drag.scroll){ drag.scroll.el.scrollLeft = drag.scroll.l0 - (e.clientX - drag.x0); e.preventDefault(); return; }
   if (!drag.started){
-    if (Math.hypot(e.clientX - drag.x0, e.clientY - drag.y0) < 7) return;
+    var mx = e.clientX - drag.x0, my = e.clientY - drag.y0;
+    if (Math.hypot(mx, my) < 7) return;
+    /* dans une liste de la palette qui défile, un geste horizontal fait défiler : seul un geste vers le haut ou le bas attrape l'élément */
+    var list = drag.src.dataset.pal && Math.abs(mx) > Math.abs(my) && drag.src.closest('.pal-list');
+    if (list && list.scrollWidth > list.clientWidth + 1){
+      clearTimeout(drag.lpT);
+      if (e.pointerType==='mouse'){ drag.scroll = {el:list, l0:list.scrollLeft + mx}; e.preventDefault(); }
+      else drag = null;   /* au doigt, le navigateur fait défiler tout seul */
+      return;
+    }
     startDrag();
   }
   e.preventDefault();
@@ -3087,7 +3097,7 @@ document.addEventListener('pointerup', function(e){
   var d = drag; drag = null;
   clearTimeout(d.lpT);
   if (!d.started){
-    if (d.soloFired) return;
+    if (d.soloFired || d.scroll) return;
     if (!d.src.dataset.pal && (d.p.k==='mvStack' || d.p.k==='mvBlock')){
       var tid = d.p.k==='mvStack' ? d.p.s : d.p.b, now = Date.now();
       if (lastTap && lastTap.id===tid && now - lastTap.t < 320){
