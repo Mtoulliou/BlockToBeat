@@ -2314,8 +2314,8 @@ function pulseBlock(id){
   if (reduceMotion) return;
   var el = canvas.querySelector('.nblk[data-b="'+id+'"]') || canvas.querySelector('.row[data-b="'+id+'"]');
   if (!el || !el.animate) return;
-  var big = el.classList.contains('nblk');
-  el.animate([{transform:'scale('+(big ? 1.018 : 1.035)+')', filter:'brightness(1.4) saturate(1.2)'}, {transform:'scale(1)', filter:'brightness(1) saturate(1)'}], {duration:220, easing:'ease-out'});
+  /* juste un éclat de lumière : aucun mouvement, sinon les blocs tremblent et deviennent difficiles à toucher */
+  el.animate([{filter:'brightness(1.4) saturate(1.2)'}, {filter:'brightness(1) saturate(1)'}], {duration:220, easing:'ease-out'});
 }
 var mascot = document.getElementById('mascot'), mWave = document.getElementById('mWave'), mEyeL = document.getElementById('mEyeL'), mEyeR = document.getElementById('mEyeR');
 /* Danse : des passages de 1 à 4 mesures tirés au hasard, chacun avec sa forme de vague et sa façon de bouger */
