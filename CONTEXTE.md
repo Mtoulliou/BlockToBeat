@@ -106,7 +106,7 @@ Repères (cherche le nom dans le fichier).
 - `synth` et `VOICE` : 24 instruments synthétisés (Karplus-Strong pour guitares et basses, piano, rhodes, orgue, marimba, cordes, flûte, cuivres, sax, chœur, supersaw, 808 avec chute de hauteur).
 - Percussions en onomatopées : Boum (bd), Tchak (sd), Clap (cp), Tss (hh), Pshh (oh), Tok (rim), Toum (lt), Crash (cr).
 - `renderWav` / `exportWav` : export .wav hors ligne par tranches de ~8 s.
-- Son bloqué au lancement : les navigateurs interdisent le son avant un premier toucher. `autoStart` lance la lecture, et si le son est bloqué, l'écran `#soundHint` (fond assombri, encoches aux 4 coins, « Touche l'écran pour lancer la musique ») capte le premier toucher. Voir `audioLockCheck`, `unlockAudio`.
+- Son bloqué au lancement : les navigateurs interdisent le son avant un premier toucher. `autoStart` lance la lecture, et si le son est bloqué, l'écran `#soundHint` (fond assombri, encoches aux 4 coins, « Touche l'écran pour lancer la musique ») capte le premier toucher. Voir `audioLockCheck`, `unlockAudio`. Dans le bas de cet écran, hors de l'app installée et sur téléphone seulement, un mini tuto explique comment ajouter l'app à l'écran d'accueil selon le système et le navigateur (`installSteps`, `renderInstallTuto`) ; sur Chrome Android, un bouton « Installer l'app » utilise l'invitation du navigateur (`beforeinstallprompt`, gardée dans `window.btbInstallPrompt`).
 
 ### REC
 - Bouton REC : le menu du bas devient le pad. La prise attend la première note, ouvre une nouvelle ligne à chaque boucle, avec métronome.
