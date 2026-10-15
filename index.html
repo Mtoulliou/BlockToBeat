@@ -702,7 +702,10 @@ function load(){
   } catch (e) {}
   return null;
 }
-function persist(){ try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
+/* Tant que la démo du lancement n'a pas été touchée, on ne l'enregistre pas : le dernier projet reste sauvegardé
+   et se retrouve avec ↶, même après plusieurs rechargements. auto = sauvegarde qui ne vient pas d'un geste. */
+var demoFresh = false;
+function persist(auto){ if (auto && demoFresh) return; demoFresh = false; try { localStorage.setItem(KEY, JSON.stringify(P)); } catch (e) {} }
 
 var P = load();
 var restored = !!P;
@@ -1084,7 +1087,7 @@ function resolveOverlaps(){
     placed.push({x:x, y:y, w:it.w, h:it.h});
   });
   pinnedStack = null;
-  if (moved) persist();
+  if (moved) persist(true);
 }
 function renderCanvas(){
   canvas.innerHTML = P.stacks.length ? P.stacks.map(stackHTML).join('') :
@@ -3929,7 +3932,7 @@ function loadDemo(){
   /* la création précédente reste à un « annuler » près */
   if (restored && P && P.stacks && P.stacks.length) hist.push(JSON.stringify(P));
   P = {bpm: res.bpm ? Math.max(60, Math.min(200, Math.round(res.bpm))) : 120, stacks: res.stacks, mode:'loop', lanes:[[]]};
-  persist();
+  demoFresh = true;
   return true;
 }
 /* La lecture démarre dès l'ouverture. Si le navigateur bloque le son tant qu'on n'a pas touché l'écran,
@@ -3953,6 +3956,7 @@ setCode(isWide());
 loadDemo();
 updateDelay();
 renderAll();
+if (hist.length) toast('Ton dernier projet est à un ↶ près', 3500);
 autoStart();
 syncPalH();
 fitView();
