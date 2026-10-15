@@ -1152,6 +1152,7 @@ function renderActionBar(){
     h = trashBtn('del', 'Supprimer le bloc')+'<span class="ab-label">Bloc '+(b.type==='code' ? 'code' : b.type==='s' ? 'Son' : 'Mélo')+'</span>'+
       '<button type="button" class="ab-btn" data-ab="mute">'+(b.muted?'Réactiver':'Couper le son')+'</button>'+
       (b.type!=='code' ? '<button type="button" class="ab-btn'+(solo && solo.id===b.id?' on':'')+'" data-ab="solo">Solo</button>' : '')+
+      (b.type==='s' ? '<button type="button" class="ab-btn" data-ab="clear"'+(sLines(b).every(function(ln){ return ln.every(function(x){ return x==='~'; }); })?' disabled':'')+'>Vider</button>' : '')+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   } else {
     var nb = findBlock(sel.s, sel.b);
@@ -2831,6 +2832,7 @@ bar.addEventListener('click', function(e){
     if (a==='addline') mutate(function(){ b.lines.push(newLine()); });
     if (a==='solo'){ toggleSolo('block', b.id); return; }
     if (a==='mute') mutate(function(){ b.muted = !b.muted; });
+    if (a==='clear' && b.type==='s'){ mutate(function(){ sLines(b).forEach(function(ln){ for (var k=0;k<ln.length;k++) ln[k] = '~'; }); }); toast('Bloc vidé. Annuler pour récupérer les sons.'); }
     if (a==='dup') mutate(function(){ var c = cloneBlock(b); loc.s.blocks.splice(loc.i+1, 0, c); sel = {k:'block', s:loc.s.id, b:c.id}; });
     if (a==='del'){ mutate(function(){ loc.s.blocks.splice(loc.i, 1); sel = null; }); toast('Bloc supprimé. Annuler pour le récupérer.'); }
   } else {
