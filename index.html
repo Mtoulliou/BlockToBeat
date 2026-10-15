@@ -616,6 +616,25 @@ var SYNTH_FR = {triangle:'Doux', piano:'Piano', sawtooth:'Brillant', square:'Ré
   gm_epiano1:'Piano électrique', gm_marimba:'Marimba', gm_choir_aahs:'Chœur'};
 var GM_FR = [[/guitar/, 'Guitare'], [/bass/, 'Basse'], [/cello/, 'Violoncelle'], [/viola/, 'Alto'], [/violin|fiddle/, 'Violon'], [/string/, 'Cordes'],
   [/flute|recorder|piccolo/, 'Flûte'], [/organ/, 'Orgue'], [/piano|epiano|rhodes/, 'Piano'], [/pad/, 'Nappe'], [/brass|trumpet|trombone|horn/, 'Cuivres'], [/sax/, 'Saxo'], [/choir|voice|aahs|oohs/, 'Chœur'], [/bell|marimba|vibraphone|xylophone|celesta|glock/, 'Clochettes']];
+/* « Basse 808 » n'est pas un timbre Strudel à part : c'est le timbre Pur (sinus) dans le grave, avec ses réglages.
+   Le menu Timbre d'un bloc Mélo la propose quand même, et la reconnaît. */
+function fx808(){ for (var i=0;i<REC_INST.length;i++) if (REC_INST[i].id==='808') return REC_INST[i].fx; return []; }
+function is808(b){ var F = fxOf(b); return b.synth==='sine' && !!F.shape && !!F.sustain && +F.sustain.v===0; }
+function timbreOptions(b){
+  var out = [];
+  Object.keys(SYNTHS).concat(SYNTHS[b.synth] ? [] : [b.synth]).forEach(function(k){ out.push([k, synthLabel(k)]); if (k==='sine') out.push(['808', 'Basse 808']); });
+  return out;
+}
+function apply808(b){
+  b.synth = 'sine';
+  fx808().forEach(function(f){
+    if (f.type==='gain') return;   /* on garde le volume du bloc */
+    var cur = b.fx.filter(function(x){ return x.type===f.type; })[0];
+    if (cur){ cur.v = f.v; delete cur.sig; delete cur.seq; delete cur.pat; } else b.fx.push({type:f.type, v:f.v});
+  });
+  /* la 808 ne « tombe » que dans le grave : un bloc trop aigu descend à l'octave 1 */
+  var m = /^([A-G]#?)(\d)$/.exec(b.root); if (m && +m[2] > 2) b.root = m[1] + '1';
+}
 function synthLabel(k){
   if (SYNTH_FR[k]) return SYNTH_FR[k];
   for (var i=0;i<GM_FR.length;i++) if (GM_FR[i][0].test(k)) return GM_FR[i][1];
@@ -1048,7 +1067,7 @@ function nHTML(st, b, z){
         '<div class="slot">'+
           '<button type="button" class="pselect root-btn" data-act="rootpick"'+attrs({s:st.id, b:b.id})+' style="--heat:'+rootHeat(b.root)+'" aria-label="Note de départ : '+esc(rootFR(b.root))+'. Changer, du plus grave au plus aigu">'+esc(rootFR(b.root))+'</button>'+
           selectHTML(st, b, 'scale', Object.keys(SCALES).map(function(k){ return [k, SCALE_FR[k]]; }), b.scale, 'Gamme')+
-          selectHTML(st, b, 'synth', Object.keys(SYNTHS).concat(SYNTHS[b.synth] ? [] : [b.synth]).map(function(k){ return [k, synthLabel(k)]; }), b.synth, 'Timbre')+
+          selectHTML(st, b, 'synth', timbreOptions(b), is808(b) ? '808' : b.synth, 'Timbre')+
         '</div>'+
       '</div>'+ fxHTML(st, b)+
     '</div>'+
@@ -2809,7 +2828,7 @@ viewport.addEventListener('click', function(e){
 viewport.addEventListener('change', function(e){
   var s = e.target.closest('select[data-nf]'); if (!s) return;
   var d = s.dataset, v = s.value;
-  mutate(function(){ var b = findBlock(d.s, d.b); if (b) b[d.nf] = v; });
+  mutate(function(){ var b = findBlock(d.s, d.b); if (!b) return; if (d.nf==='synth' && v==='808') apply808(b); else b[d.nf] = v; });
   var b = findBlock(d.s, d.b); if (b) preview(b, '0');
 });
 
