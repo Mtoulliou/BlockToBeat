@@ -2578,7 +2578,7 @@ function openCellPicker(cell){
       var nc3 = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc3) openCellPicker(nc3); else closePop();
       return;
     }
-    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length>1) delStep(a, i); } else a[i] = v; });
+    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length>1) delStep(a, i); } else setStep(a, i, v); });
     if (v!=='__del' && v!=='~') preview(findBlock(d.s, d.b), v);
     closePop();
   };
@@ -2651,7 +2651,10 @@ function refreshPads(){
 }
 /* Durée d'une note : les « _ » qui la suivent */
 /* Supprimer le premier pas d'une note tenue : la note (ou l'accord) passe sur le pas tenu suivant, la fin de la note reste */
-function delStep(a, i){ if (a[i] !== '~' && a[i] !== '_' && a[i+1] === '_') a[i+1] = a[i]; a.splice(i, 1); }
+/* Pareil quand on met ce premier pas en silence : la note recommence sur le pas tenu suivant */
+function liftHead(a, i){ if (a[i] !== '~' && a[i] !== '_' && a[i+1] === '_') a[i+1] = a[i]; }
+function delStep(a, i){ liftHead(a, i); a.splice(i, 1); }
+function setStep(a, i, v){ if (v === '~') liftHead(a, i); a[i] = v; }
 function holdLen(a, i){ var h = 0; while (i + h + 1 < a.length && a[i + h + 1]==='_') h++; return h; }
 function canGrow(a, i){ var j = i + holdLen(a, i) + 1; return j < a.length ? a[j]==='~' : a.length < 16; }
 function setHold(a, i, n){
@@ -2862,7 +2865,7 @@ function multiApply(action){
       var p = g.split(':'), b = findBlock(null, p[0]); if (!b) return;
       var arr = b.type==='s' ? sLines(b)[+p[1]] : (b.lines ? b.lines[+p[1]] : null); if (!arr) return;
       var idx = groups[g].sort(function(x, y){ return y - x; });
-      if (action==='rest') idx.forEach(function(i){ if (i < arr.length) arr[i] = '~'; });
+      if (action==='rest') idx.forEach(function(i){ if (i < arr.length) setStep(arr, i, '~'); });
       else { idx.forEach(function(i){ if (i < arr.length) delStep(arr, i); }); if (!arr.length) arr.push('~'); }
     });
     multi = null;
@@ -3220,7 +3223,7 @@ function performDrop(n, d, e){
   mutate(function(){
     var b, loc, blk;
     switch (td){
-      case 'cell': { var a = arrOf(nd); if (a) a[+nd.i] = p.v; break; }
+      case 'cell': { var a = arrOf(nd); if (a) setStep(a, +nd.i, p.v); break; }
       case 'slot': { var a2 = arrOf(nd); if (a2 && a2.length<16) a2.push(p.v); break; }
       case 'block':
         loc = locate(nd.b); if (!loc) break; b = loc.b;
