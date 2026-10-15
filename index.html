@@ -876,10 +876,10 @@ viewport.addEventListener('pointerdown', function(e){
   if (e.pointerType==='mouse' && e.button!==0) return;
   var sc = !multi && pts.size===0 && e.target.closest && e.target.closest('.b-line .cell');
   if (sc){
-    var sa = arrOf(sc.dataset), sv = sa && sa[+sc.dataset.i];
+    var sa = arrOf(sc.dataset), si = sa ? noteHead(sa, +sc.dataset.i) : 0, sv = sa && sa[si];
     if (sv && sv!=='~' && sv!=='_'){
       pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
-      stretch = {pid:e.pointerId, d:{s:sc.dataset.s, b:sc.dataset.b, l:sc.dataset.l}, i:+sc.dataset.i, v:sv, x0:e.clientX, y0:e.clientY, active:false};
+      stretch = {pid:e.pointerId, d:{s:sc.dataset.s, b:sc.dataset.b, l:sc.dataset.l}, i:si, v:sv, x0:e.clientX, y0:e.clientY, active:false};
       pan = null;
       return;
     }
@@ -897,7 +897,7 @@ function startPinch(){
 function stretchMove(e){
   var dx = e.clientX - stretch.x0, dy = e.clientY - stretch.y0;
   if (!stretch.active){
-    if (dx > 10 && Math.abs(dx) > Math.abs(dy)*1.3){
+    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)*1.3){
       stretch.active = true;
       if (lp){ clearTimeout(lp.t); lp = null; }
       closePop(); suppressClick = true;
@@ -2528,6 +2528,7 @@ function openCellPicker(cell){
   var d = {s:cell.dataset.s, b:cell.dataset.b, l:cell.dataset.l, i:cell.dataset.i}, ckey = d.b+':'+d.l+':'+d.i;
   var b = findBlock(d.s, d.b); if (!b) return;
   var isN = b.type==='n', arr = arrOf(d), i = +d.i, cur = arr[i];
+  if (cur==='_' && i > 0){ var hc = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+noteHead(arr, i)+'"]'); if (hc){ openCellPicker(hc); return; } }
   var opts = isN ? degList(b) : SOUNDS.map(function(s){ return s.v; });
   var canLen = isN && cur!=='~' && cur!=='_', hl = canLen ? holdLen(arr, i) : 0;
   var parts = canLen ? String(cur).split(',') : [], isChord = parts.length > 1;
@@ -2546,7 +2547,7 @@ function openCellPicker(cell){
     h += '<button type="button" class="pick '+(isN?'pick--n':'pick--s')+((isChord ? parts.indexOf(o) > -1 : o===cur)?' on':'')+'" data-pick="'+o+'"'+(isN?'':' data-snd="'+o+'"')+'><span>'+(isN?o:SOUND_FR[o])+'</span>'+(isN?'':'<small>'+SOUND_D[o]+'</small>')+'</button>';
   });
   h += '<button type="button" class="pick pick--rest'+(cur==='~'?' on':'')+'" data-pick="~"><span>·</span><small>Silence</small>'+'</button></div>'+
-    '<button type="button" class="pop-del" data-pick="__del"'+(arr.length<2?' disabled':'')+'>Supprimer ce pas</button>';
+    '<button type="button" class="pop-del" data-pick="__del"'+(arr.length<=hl+1?' disabled':'')+'>'+(hl ? 'Supprimer cette note' : 'Supprimer ce pas')+'</button>';
   pop.innerHTML = h; showPop(cell);
   pop.onclick = function(e){
     var lb = e.target.closest('[data-len]');
@@ -2579,7 +2580,7 @@ function openCellPicker(cell){
       var nc3 = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc3) openCellPicker(nc3); else closePop();
       return;
     }
-    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length>1) delStep(a, i); } else setStep(a, i, v); });
+    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length > noteSpan(a, i).n) delStep(a, i); } else setStep(a, i, v); });
     if (v!=='__del' && v!=='~') preview(findBlock(d.s, d.b), v);
     closePop();
   };
@@ -2652,10 +2653,16 @@ function refreshPads(){
 }
 /* Durée d'une note : les « _ » qui la suivent */
 /* Supprimer le premier pas d'une note tenue : la note (ou l'accord) passe sur le pas tenu suivant, la fin de la note reste */
-/* Pareil quand on met ce premier pas en silence : la note recommence sur le pas tenu suivant */
-function liftHead(a, i){ if (a[i] !== '~' && a[i] !== '_' && a[i+1] === '_') a[i+1] = a[i]; }
-function delStep(a, i){ liftHead(a, i); a.splice(i, 1); }
-function setStep(a, i, v){ if (v === '~') liftHead(a, i); a[i] = v; }
+/* Une note tenue est une seule note : son début et ses « _ » vont ensemble.
+   On la supprime ou on la met en silence en entier, on change sa durée en glissant sa fin. */
+function noteHead(a, i){ while (i > 0 && a[i]==='_') i--; return i; }
+function noteSpan(a, i){ var h = noteHead(a, i); return {h:h, n:holdLen(a, h) + 1}; }
+function delStep(a, i){ var sp = noteSpan(a, i); a.splice(sp.h, sp.n); }
+function setStep(a, i, v){
+  var sp = noteSpan(a, i);
+  if (v === '~') for (var k=0;k<sp.n;k++) a[sp.h + k] = '~';
+  else a[sp.h] = v;
+}
 function holdLen(a, i){ var h = 0; while (i + h + 1 < a.length && a[i + h + 1]==='_') h++; return h; }
 function canGrow(a, i){ var j = i + holdLen(a, i) + 1; return j < a.length ? a[j]==='~' : a.length < 16; }
 function setHold(a, i, n){
@@ -2866,9 +2873,11 @@ function multiApply(action){
     Object.keys(groups).forEach(function(g){
       var p = g.split(':'), b = findBlock(null, p[0]); if (!b) return;
       var arr = b.type==='s' ? sLines(b)[+p[1]] : (b.lines ? b.lines[+p[1]] : null); if (!arr) return;
-      var idx = groups[g].sort(function(x, y){ return y - x; });
-      if (action==='rest') idx.forEach(function(i){ if (i < arr.length) setStep(arr, i, '~'); });
-      else { idx.forEach(function(i){ if (i < arr.length) delStep(arr, i); }); if (!arr.length) arr.push('~'); }
+      var all = {};
+      groups[g].forEach(function(i){ if (i >= arr.length) return; var sp = noteSpan(arr, i); for (var k=0;k<sp.n;k++) all[sp.h + k] = 1; });
+      var idx = Object.keys(all).map(Number).sort(function(x, y){ return y - x; });
+      if (action==='rest') idx.forEach(function(i){ arr[i] = '~'; });
+      else { idx.forEach(function(i){ arr.splice(i, 1); }); if (!arr.length) arr.push('~'); }
     });
     multi = null;
   });
