@@ -879,8 +879,9 @@ function fitView(){
   if (!b){ V.z = 1; V.tx = a.l; V.ty = a.t; applyView(); return; }
   var z = Math.max(ZMIN, Math.min(1.15, aw/b.w, ah/b.h));
   V.z = z;
-  V.tx = a.l + (aw - b.w*z)/2 - b.x*z;
-  V.ty = a.t + (ah - b.h*z)/2 - b.y*z;
+  /* centré si tout tient ; sinon calé sur le coin haut gauche, pour voir les titres et le début des lignes */
+  V.tx = a.l + Math.max(0, (aw - b.w*z)/2) - b.x*z;
+  V.ty = a.t + Math.max(0, (ah - b.h*z)/2) - b.y*z;
   applyView();
 }
 function viewCenter(){
