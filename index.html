@@ -40,12 +40,12 @@
   --cell:48px; --ncell:38px; --cellh:38px; --lvl:0; --flash:0; --strobe:0; --flash-rgb:255,79,139;
   --gl:max(16px,env(safe-area-inset-left,0px)); --gr:max(16px,env(safe-area-inset-right,0px));
   /* Bords de l'écran (iPhone : Dynamic Island ou encoche en haut, barre d'accueil en bas).
-     --gt : les îles du haut juste sous l'encoche, sans la marge en plus d'avant.
+     En haut, la zone de la barre d'état est une bande noire nette (.topband) : l'app commence dessous, --gt juste sous la bande.
      --sb : en bas, la zone réservée par le système (~34 px en app installée) ne garde que ce qu'il faut
      pour que la barre de navigation ne touche pas le trait d'accueil : pas de vide inutile. */
-  --gt:max(10px, calc(env(safe-area-inset-top,0px) - 4px));
-  --sb:max(0px, calc(env(safe-area-inset-bottom,0px) - 22px));
-  --navh:58px; --gb:calc(14px + var(--navh) + var(--sb));
+  --gt:max(10px, calc(env(safe-area-inset-top,0px) + 8px));
+  --sb:max(0px, calc(env(safe-area-inset-bottom,0px) - 20px));
+  --navh:26px; --gb:calc(14px + var(--navh) + var(--sb));
   color-scheme:dark;
 }
 html,body{height:100%}
@@ -61,6 +61,7 @@ button{cursor:pointer}
 .vbg{--gridc:rgba(var(--flash-rgb),calc(.08 + var(--flash)*.28));position:fixed;inset:0;z-index:0;pointer-events:none;background-color:var(--bg);background-image:linear-gradient(var(--gridc) 1px,transparent 1px),linear-gradient(90deg,var(--gridc) 1px,transparent 1px);background-size:26px 26px}
 .viewport{position:fixed;inset:0;z-index:0;overflow:hidden;touch-action:none;cursor:grab}
 .viewport.panning{cursor:grabbing}
+.topband{position:fixed;left:0;right:0;top:0;height:env(safe-area-inset-top,0px);z-index:1300;background:#000;pointer-events:none}
 .vglow{position:fixed;inset:0;z-index:1;pointer-events:none;background:radial-gradient(90% 60% at 50% 115%,rgba(var(--flash-rgb),.38),transparent 62%),radial-gradient(70% 50% at 50% -10%,rgba(255,79,139,.22),transparent 60%);opacity:calc(.12 + var(--lvl)*2 + var(--flash)*.7)}
 .strobe{position:fixed;inset:0;z-index:5;pointer-events:none;background:radial-gradient(circle at 50% 45%,rgba(255,241,232,.95),rgba(255,79,139,.5) 38%,transparent 72%);opacity:calc(var(--strobe)*.14);mix-blend-mode:screen}
 .mascot{flex:none;overflow:visible;filter:drop-shadow(0 0 5px var(--title));transition:opacity .2s}
@@ -89,10 +90,10 @@ button{cursor:pointer}
 @keyframes recblink{50%{opacity:.2}}
 /* Barre de navigation : Learning, Lab (le plan de travail), Library, Profile */
 .nav{position:fixed;left:0;right:0;bottom:0;z-index:1000;height:calc(var(--navh) + var(--sb));padding-bottom:var(--sb);box-sizing:border-box;display:flex;justify-content:center;background:rgb(23,10,19);border-top:1px solid var(--line)}
-.nav-btn{flex:1;max-width:140px;border:0;background:transparent;color:var(--dim);display:flex;flex-direction:column;align-items:center;justify-content:center;gap:3px;font-family:var(--f-body);font-weight:700;font-size:11px;cursor:pointer;-webkit-tap-highlight-color:transparent}
-.nav-btn svg{transition:transform .15s}
+.nav-btn{flex:1;max-width:140px;border:0;background:transparent;color:var(--dim);display:flex;flex-direction:row;align-items:center;justify-content:center;gap:5px;font-family:var(--f-body);font-weight:700;font-size:11px;line-height:1;cursor:pointer;-webkit-tap-highlight-color:transparent}
+.nav-btn svg{flex:none;width:16px;height:16px;transition:transform .15s}
 .nav-btn[aria-current="page"]{color:var(--title)}
-.nav-btn[aria-current="page"] svg{transform:translateY(-1px)}
+.nav-btn[aria-current="page"] svg{transform:scale(1.1)}
 .nav-page{position:fixed;left:0;right:0;top:0;bottom:calc(var(--navh) + var(--sb));z-index:900;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;padding:24px;text-align:center;background:var(--bg)}
 .nav-page[hidden]{display:none}
 .nav-page svg{color:var(--title)}
@@ -516,6 +517,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 <div class="vbg" id="vbg" aria-hidden="true"></div>
 <main class="viewport" id="viewport" data-drop="canvas" aria-label="Plan de travail"><div class="world" id="canvas"></div></main>
 <div class="vglow" aria-hidden="true"></div>
+<div class="topband" aria-hidden="true"></div>
 
 <div class="island isl-brand">
   <div class="brand">
