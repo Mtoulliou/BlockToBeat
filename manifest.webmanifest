@@ -1,0 +1,17 @@
+{
+  "name": "BlockToBeat",
+  "short_name": "BlockToBeat",
+  "description": "Compose de la musique en emboîtant des blocs, le vrai code Strudel s'écrit tout seul.",
+  "lang": "fr",
+  "start_url": "./",
+  "scope": "./",
+  "display": "standalone",
+  "orientation": "any",
+  "background_color": "#170A13",
+  "theme_color": "#170A13",
+  "icons": [
+    { "src": "icon-192.png", "sizes": "192x192", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon-512.png", "sizes": "512x512", "type": "image/png", "purpose": "any maskable" },
+    { "src": "icon.svg", "sizes": "any", "type": "image/svg+xml" }
+  ]
+}
