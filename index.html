@@ -9,8 +9,10 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
 <meta name="apple-mobile-web-app-title" content="BlockToBeat">
+<script>if (/Firefox\//.test(navigator.userAgent)) document.documentElement.classList.add('is-firefox');</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
+<link rel="icon" type="image/png" sizes="192x192" href="icon-192.png">
 <link rel="apple-touch-icon" href="icon-180.png">
 <style>html,body{margin:0;padding:0;height:100%;background:#170A13;overscroll-behavior:none}</style>
 </head>
@@ -59,6 +61,8 @@ button{cursor:pointer}
 /* Islands */
 [hidden]{display:none!important}
 .island{position:fixed;z-index:10;background:var(--island);border:1px solid var(--line);border-radius:18px;box-shadow:0 14px 34px rgba(0,0,0,.42);-webkit-backdrop-filter:blur(14px);backdrop-filter:blur(14px)}
+/* Firefox ne dessine pas toujours le flou d’arrière-plan : les blocs transparaissent à travers les panneaux. Sous Firefox, fond opaque sans flou */
+.is-firefox .island{background:rgb(31,15,26);-webkit-backdrop-filter:none;backdrop-filter:none}
 .isl-brand{left:var(--gl);top:var(--gt);display:flex;align-items:center;gap:6px;padding:6px 6px 6px 12px}
 .brand{display:flex;align-items:center;gap:8px;margin-right:6px}
 .brand svg{flex:none;filter:drop-shadow(0 0 5px var(--title))}
