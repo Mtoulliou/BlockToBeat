@@ -2534,7 +2534,7 @@ function openCellPicker(cell){
       var nc3 = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc3) openCellPicker(nc3); else closePop();
       return;
     }
-    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length>1) a.splice(i, 1); } else a[i] = v; });
+    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length>1) delStep(a, i); } else a[i] = v; });
     if (v!=='__del' && v!=='~') preview(findBlock(d.s, d.b), v);
     closePop();
   };
@@ -2594,6 +2594,8 @@ function refreshPads(){
   var t = palette.querySelector('[data-chordmode]'); if (t) t.setAttribute('aria-pressed', String(palChord));
 }
 /* Durée d'une note : les « _ » qui la suivent */
+/* Supprimer le premier pas d'une note tenue : la note (ou l'accord) passe sur le pas tenu suivant, la fin de la note reste */
+function delStep(a, i){ if (a[i] !== '~' && a[i] !== '_' && a[i+1] === '_') a[i+1] = a[i]; a.splice(i, 1); }
 function holdLen(a, i){ var h = 0; while (i + h + 1 < a.length && a[i + h + 1]==='_') h++; return h; }
 function canGrow(a, i){ var j = i + holdLen(a, i) + 1; return j < a.length ? a[j]==='~' : a.length < 16; }
 function setHold(a, i, n){
@@ -2805,7 +2807,7 @@ function multiApply(action){
       var arr = b.type==='s' ? sLines(b)[+p[1]] : (b.lines ? b.lines[+p[1]] : null); if (!arr) return;
       var idx = groups[g].sort(function(x, y){ return y - x; });
       if (action==='rest') idx.forEach(function(i){ if (i < arr.length) arr[i] = '~'; });
-      else { idx.forEach(function(i){ if (i < arr.length) arr.splice(i, 1); }); if (!arr.length) arr.push('~'); }
+      else { idx.forEach(function(i){ if (i < arr.length) delStep(arr, i); }); if (!arr.length) arr.push('~'); }
     });
     multi = null;
   });
