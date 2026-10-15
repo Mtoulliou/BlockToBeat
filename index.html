@@ -546,7 +546,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 'use strict';
 
 /* ---------- Catalogue ---------- */
-var KEY = 'blocktobeat-poc-1';
+var KEY = 'blocktobeat-poc-1' + (/\/dev\/(index\.html)?$/.test(location.pathname) ? '-dev' : '');   /* la version dev garde son propre projet */
 var SOUNDS = [
   {v:'bd', d:'Grosse caisse'}, {v:'sd', d:'Caisse claire'}, {v:'cp', d:'Clap'},
   {v:'hh', d:'Charley fermé'}, {v:'oh', d:'Charley ouvert'}, {v:'rim', d:'Rimshot'},
