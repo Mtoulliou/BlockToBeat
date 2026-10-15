@@ -1144,6 +1144,7 @@ function renderActionBar(){
   } else {
     var nb = findBlock(sel.s, sel.b);
     h = trashBtn('del', 'Supprimer la ligne', nb.lines.length<2)+'<span class="ab-label">Ligne '+(sel.l+1)+'</span>'+
+      '<button type="button" class="ab-btn" data-ab="clear"'+(nb.lines[sel.l].every(function(x){ return x==='~'; })?' disabled':'')+'>Vider</button>'+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   }
   bar.innerHTML = h + '<button type="button" class="ab-btn close" data-ab="close" aria-label="Fermer la sélection">✕</button>';
@@ -2774,6 +2775,7 @@ bar.addEventListener('click', function(e){
   } else {
     var nb = findBlock(sel.s, sel.b), li = sel.l;
     if (a==='addstep') mutate(function(){ if (nb.lines[li].length<16) nb.lines[li].push('~'); });
+    if (a==='clear'){ mutate(function(){ nb.lines[li] = nb.lines[li].map(function(){ return '~'; }); }); toast('Ligne vidée. Annuler pour récupérer les notes.'); }
     if (a==='dup') mutate(function(){ nb.lines.splice(li+1, 0, nb.lines[li].slice()); sel = {k:'line', s:sel.s, b:sel.b, l:li+1}; });
     if (a==='del' && nb.lines.length>1) mutate(function(){ nb.lines.splice(li, 1); sel = null; });
   }
