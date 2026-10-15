@@ -1,0 +1,45 @@
+# Publie les deux versions de l'app sur GitHub Pages :
+#   main -> https://mtoulliou.github.io/BlockToBeat/
+#   dev  -> https://mtoulliou.github.io/BlockToBeat/dev/
+name: Pages
+
+on:
+  push:
+    branches: [main, dev]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: pages
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: main
+          path: site
+      - uses: actions/checkout@v4
+        with:
+          ref: dev
+          path: site/dev
+      - name: Préparer le site
+        run: |
+          rm -rf site/.git site/.github site/tests site/dev/.git site/dev/.github site/dev/tests
+          # La version dev s'installe comme une app à part, avec un nom distinct
+          sed -i 's/"name": "BlockToBeat"/"name": "BlockToBeat (dev)"/; s/"short_name": "BlockToBeat"/"short_name": "BTB dev"/' site/dev/manifest.webmanifest
+      - uses: actions/configure-pages@v5
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - id: deployment
+        uses: actions/deploy-pages@v4
