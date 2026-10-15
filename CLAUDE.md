@@ -63,6 +63,7 @@ Un seul fichier d'environ 4 000 lignes. Repères (cherche le nom de la fonction)
 
 ### Interface
 - Plan de travail infini (pan + zoom), commandes en « îles » flottantes.
+- Barre de navigation en bas (`#nav`) : Learning, Lab (le plan de travail), Library, Profile. Seul Lab est fait, les autres affichent une page « En travaux » (`.nav-page`). Sa hauteur `--navh` est incluse dans `--gb` : tout ce qui se cale en bas avec `--gb` passe au-dessus.
 - Menu du bas sur 2 lignes (onglets Sons / Notes / Blocs). Onglet Notes : choix de l'instrument + pads façon REC + mode accords.
 - REC : simple bouton, le menu du bas devient le pad. Attend la première note, nouvelle ligne à chaque boucle, métronome, appui long = note tenue. Une note suivie par doigt ou touche (`recHolds`), notes simultanées sur un même pas = accord, la boucle ne rejoue pas une note qu'on vient d'entendre en direct (`rec.fresh`), et le son pendant la prise est celui de la relecture.
 - Gestes : appui long = solo, double tap = muet, étirer une note pour l'allonger.
