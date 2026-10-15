@@ -1,6 +1,6 @@
 /* BlockToBeat : met l'app en cache pour qu'elle s'ouvre même sans réseau.
    Change VERSION à chaque mise à jour pour forcer le rafraîchissement. */
-const VERSION = 'blocktobeat-v12';
+const VERSION = 'blocktobeat-v13';
 /* La version dev vit dans le sous-dossier dev/ du même site : chaque version a son propre cache
    (sinon elles s'effaceraient l'une l'autre) et la version principale ne touche pas aux pages de dev/. */
 const BASE = new URL('./', location).pathname;

@@ -2042,9 +2042,9 @@ function heatT(t){
   var i = Math.min(HEAT.length - 2, Math.floor(t)), f = t - i;
   return HEAT[i].map(function(c, k){ return Math.round(c + (HEAT[i+1][k] - c)*f); }).join(',');
 }
-/* Notes proposées dans les menus : au moins une octave complète (0 à 12 en chromatique), sinon 0 à 9 comme avant */
+/* Notes proposées dans les menus : 0 à 12 au minimum (une octave complète en chromatique), quelle que soit la gamme */
 function scaleOf(b){ return SCALES[b && b.scale] || SCALES.minor; }
-function degCount(b){ return Math.max(10, scaleOf(b).length + 1); }
+function degCount(b){ return Math.max(13, scaleOf(b).length + 1); }
 function degList(b){ var out = []; for (var k=0;k<degCount(b);k++) out.push(String(k)); return out; }
 function degName(b, deg){
   var sc = SCALES[(b && b.scale)] || SCALES.minor;
