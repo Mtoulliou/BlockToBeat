@@ -77,6 +77,9 @@ button{cursor:pointer}
 .rec-btn[aria-pressed="true"]{background:rgba(255,107,122,.2)!important}
 .rec-btn[aria-pressed="true"] .rec-dot,.rec-live .rec-dot{animation:recblink 1s steps(2) infinite}
 @keyframes recblink{50%{opacity:.2}}
+/* Son bloqué par le navigateur au lancement : on invite à toucher l'écran */
+.sound-hint{position:fixed;z-index:1050;left:50%;top:42%;transform:translate(-50%,-50%);display:flex;align-items:center;gap:10px;padding:14px 20px;border-radius:999px;background:var(--title);color:var(--title-ink);font-family:var(--f-display);font-weight:800;font-size:15px;white-space:nowrap;box-shadow:0 0 32px rgba(255,79,139,.55);pointer-events:none;animation:hintpulse 1.6s ease-in-out infinite}
+@keyframes hintpulse{50%{transform:translate(-50%,-50%) scale(1.05)}}
 .isl-rec{left:50%;bottom:var(--gb);transform:translateX(-50%);width:min(540px,calc(100vw - 32px));box-sizing:border-box;padding:12px;display:flex;flex-direction:column;gap:10px;z-index:15}
 .rec-h{display:flex;align-items:center;gap:10px}
 .rec-live{display:flex;align-items:center;gap:7px;font-family:var(--f-mono);font-weight:800;font-size:12px;letter-spacing:.12em;color:var(--danger);padding-left:4px}
@@ -472,7 +475,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   .bpm{min-width:58px;font-size:10.5px}
   .play{width:46px;height:46px}
 }
-@media (prefers-reduced-motion: reduce){ .play,.cell,.pad{transition:none} .strobe,.edge-light{display:none} .rec-btn[aria-pressed="true"] .rec-dot,.rec-live .rec-dot{animation:none} }
+@media (prefers-reduced-motion: reduce){ .sound-hint{animation:none} .play,.cell,.pad{transition:none} .strobe,.edge-light{display:none} .rec-btn[aria-pressed="true"] .rec-dot,.rec-live .rec-dot{animation:none} }
 </style>
 
 <div class="strobe" aria-hidden="true"></div>
@@ -551,6 +554,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 
 <div class="pop" id="pop" hidden></div>
 <div class="toast" id="toast" role="status" hidden></div>
+<div class="sound-hint" id="soundHint" role="status" hidden><svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M11 5L6 9H2v6h4l5 4V5z"/><path d="M15.5 8.5a5 5 0 0 1 0 7"/><path d="M19 5a10 10 0 0 1 0 14"/></svg><span id="soundHintTxt">Touche l’écran pour lancer la musique</span></div>
 <div class="ghost" id="ghost" hidden></div>
 
 <script>
@@ -2348,6 +2352,7 @@ function stop(){
   canvas.querySelectorAll('.is-now').forEach(function(el){ el.classList.remove('is-now'); });
   canvas.querySelectorAll('.is-playing').forEach(function(el){ el.classList.remove('is-playing'); });
   var b = $('#play'); b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Lecture');
+  if (soundHint) audioLockCheck();
 }
 function setBpm(n){
   n = Math.max(60, Math.min(200, n));
@@ -4063,16 +4068,25 @@ function loadDemo(){
 /* La lecture démarre dès l'ouverture. Si le navigateur bloque le son tant qu'on n'a pas touché l'écran,
    la musique est « en attente » et part au premier toucher, quel qu'il soit. */
 var swallowPlay = false;
+/* Les navigateurs bloquent le son tant qu'on n'a pas touché la page : la musique attend en silence,
+   alors on le dit clairement au lieu de laisser croire que l'app est muette */
+var soundHint = $('#soundHint');
+function audioLockCheck(){ soundHint.hidden = !(playing && ctx && ctx.state !== 'running'); }
 function unlockAudio(e){
   if (!ctx || ctx.state === 'running') return;
-  ctx.resume();
+  var r = ctx.resume(); if (r && r.then) r.then(audioLockCheck, function(){});
   if (playing){ startT = ctx.currentTime + .06; schedUntil = startT; }
   if (e && e.target && e.target.closest && e.target.closest('#play')) swallowPlay = true;   /* ce toucher sert à réveiller le son, pas à mettre en pause */
 }
 ['pointerdown', 'keydown', 'touchstart', 'touchend', 'mousedown', 'click'].forEach(function(ev){ document.addEventListener(ev, unlockAudio, true); });
 function autoStart(){
   play();
-  if (ctx && ctx.state !== 'running') ctx.resume().catch(function(){});
+  if (!ctx) return;
+  if (window.matchMedia && !window.matchMedia('(pointer: coarse)').matches) $('#soundHintTxt').textContent = 'Clique pour lancer la musique';
+  if (ctx.addEventListener) ctx.addEventListener('statechange', audioLockCheck);
+  if (ctx.state !== 'running') ctx.resume().then(audioLockCheck, function(){});
+  /* le refus du navigateur n'est pas toujours signalé : on vérifie peu après */
+  setTimeout(audioLockCheck, 600);
 }
 
 /* ---------- Boot ---------- */
