@@ -157,7 +157,6 @@ Les tests ne sont pas encore rangés dans le dépôt (#26). En attendant, on vé
 ## 9. Issues ouvertes (au moment d'écrire ce fichier)
 
 - #20 Library : enregistrer, renommer et ranger ses projets en dossiers (Matteo, chantier long).
-- #14 Sons façon DJ_Dave et samples chargés depuis GitHub.
 - #25 Points à vérifier sur un vrai téléphone.
 - #26 Tests unitaires.
 - #31 Langage de code musical sans licence contraignante (à voir avec Jules).
