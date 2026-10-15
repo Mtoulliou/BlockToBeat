@@ -394,8 +394,9 @@ body.rec-on .isl-song{display:none}
 .chord-hint{margin:-4px 0 8px}
 .chord-tog{flex:none;height:34px;padding:0 12px;border-radius:9px;border:0;background:var(--panel-2);color:var(--muted);font-weight:700;font-size:12.5px;box-shadow:inset 0 0 0 1.5px var(--line-2)}
 .chord-tog[aria-pressed="true"]{background:var(--note);color:var(--note-ink);box-shadow:none}
-.chip.chip--chord{flex-direction:column;line-height:1;gap:1px}
-.chip.chip--chord small{font-size:9px;font-weight:700;opacity:.75;font-family:var(--f-body)}
+.chip.chip--chord{flex-direction:column;line-height:1;gap:2px;height:auto;min-height:40px;padding:4px 2px;font-family:var(--f-body);font-size:12.5px;white-space:nowrap}
+.chip.chip--chord small{font-size:9px;font-weight:700;opacity:.75;line-height:1.1;white-space:normal;text-align:center}
+.pal-pads.is-chord{grid-template-columns:repeat(3,minmax(0,1fr))}
 .len-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .len-row button{flex:1;height:38px;border-radius:10px;border:0;background:var(--note-ink);color:var(--note-2);font-weight:700;font-size:13px;box-shadow:inset 0 0 0 1.5px var(--note)}
 .len-row button:disabled{opacity:.35}
@@ -433,8 +434,10 @@ body.dragging,body.dragging *{cursor:grabbing!important}
   .pal-list--grid .pi{width:100%}
   .pal-notes-top{padding:2px 10px 0;margin-bottom:8px}
   .pal-pads{padding:0 10px 2px}
+  .pal-pads.is-chord{grid-template-columns:repeat(5,minmax(0,1fr))}
   .pal-pads .pi{touch-action:none}
   .isl-palette .chip,.pal-notes-top .inst-sel,.chord-tog{height:38px}
+  .isl-palette .chip.chip--chord{height:auto}
   .pal-pads{gap:6px}
   .pal-notes-top{margin-bottom:6px}
   [data-sec="sons"] .pal-list,[data-sec="blocs"] .pal-list{display:flex;flex-wrap:wrap;overflow:visible}
@@ -2054,6 +2057,24 @@ function noteFreq(b, deg){
   var len = sc.length, oct = Math.floor(deg/len), idx = ((deg % len) + len) % len;
   return 440 * Math.pow(2, (base + sc[idx] + 12*oct - 69)/12);
 }
+/* Nom d'un accord à partir de ses vraies notes (selon la note de départ et la gamme du bloc) : « La m » et « La Do Mi » */
+function degMidi(b, deg){
+  var sc = scaleOf(b), m = /^([A-G]#?)(\d)$/.exec((b && b.root) || 'A4') || ['', 'A', '4'];
+  var len = sc.length, oct = Math.floor(deg/len), idx = ((deg % len) + len) % len;
+  return NOTE_NAMES.indexOf(m[1]) + (+m[2] + 1)*12 + sc[idx] + 12*oct;
+}
+var CHORD_Q = {'0,4,7':'', '0,3,7':'m', '0,3,6':'dim', '0,4,8':'aug', '0,2,7':'sus2', '0,5,7':'sus4',
+  '0,4,7,10':'7', '0,4,7,11':'maj7', '0,3,7,10':'m7', '0,3,7,11':'m maj7', '0,3,6,10':'m7♭5', '0,3,6,9':'dim7'};
+function chordInfo(b, v){
+  var mids = String(v).split(',').map(function(x){ return degMidi(b, +x); }).sort(function(x, y){ return x - y; });
+  var pcs = mids.map(function(m){ return ((m % 12) + 12) % 12; }), name = '';
+  /* la note de basse d'abord, puis les autres (accord renversé) */
+  for (var k=0; k<pcs.length && !name; k++){
+    var r = pcs[k], rel = pcs.map(function(p){ return (p - r + 12) % 12; }).filter(function(x, i, a){ return a.indexOf(x)===i; }).sort(function(x, y){ return x - y; }).join(',');
+    if (rel in CHORD_Q) name = NOTE_FR[r] + (CHORD_Q[rel] ? ' ' + CHORD_Q[rel] : '');
+  }
+  return {name:name, notes:pcs.map(function(p){ return NOTE_FR[p]; }).join(' ')};
+}
 /* ---------- Voix des instruments ---------- */
 function loopNoise(t, life){ var s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(t, Math.random()*1.5); s.stop(t + life); return freeOnEnd(s); }
 function vibrato(oscs, t, life, cents, rate, delay){
@@ -2600,18 +2621,20 @@ function refreshPads(){
   var ref = padRef(), n = degCount(ref);
   if (wrap.children.length !== n){
     var ph = ''; for (var k=0;k<n;k++) ph += '<button type="button" class="pi pi-pad"><span class="chip chip--note chip--pad"></span></button>';
-    wrap.innerHTML = ph; syncPalH();
+    wrap.innerHTML = ph;
   }
+  wrap.classList.toggle('is-chord', palChord);
   var help = palette.querySelector('[data-sec="notes"] .pal-help');
   if (help) help.textContent = 'Degrés de la gamme : 0 est la note de départ, '+scaleOf(ref).length+' la même une octave plus haut. Glisse-les dans une ligne de notes.';
   wrap.querySelectorAll('.pi-pad').forEach(function(pi, idx){
     var v = palChord ? chordOn(idx, 3, ref.scale) : String(idx);
-    pi.dataset.pal = JSON.stringify({k:'note', v:v}); pi.title = palChord ? 'Accord sur le degré ' + idx : 'Degré ' + idx;
-    var ch = pi.querySelector('.chip'); ch.classList.toggle('chip--chord', palChord);
-    ch.innerHTML = palChord ? idx + '<small>acc.</small>' : String(idx);
-    pi.setAttribute('aria-label', palChord ? 'Accord sur le degré ' + idx : 'Degré ' + idx);
+    pi.dataset.pal = JSON.stringify({k:'note', v:v}); pi.title = palChord ? chordInfo(ref, v).notes : 'Degré ' + idx;
+    var ch = pi.querySelector('.chip'), ci = palChord ? chordInfo(ref, v) : null; ch.classList.toggle('chip--chord', palChord);
+    ch.innerHTML = palChord ? esc(ci.name || String(idx)) + '<small>' + esc(ci.notes) + '</small>' : String(idx);
+    pi.setAttribute('aria-label', palChord ? 'Accord ' + (ci.name || 'sur le degré ' + idx) + ' : ' + ci.notes : 'Degré ' + idx);
   });
   var t = palette.querySelector('[data-chordmode]'); if (t) t.setAttribute('aria-pressed', String(palChord));
+  syncPalH();
 }
 /* Durée d'une note : les « _ » qui la suivent */
 /* Supprimer le premier pas d'une note tenue : la note (ou l'accord) passe sur le pas tenu suivant, la fin de la note reste */
