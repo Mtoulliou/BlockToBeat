@@ -9,7 +9,9 @@
 <meta name="mobile-web-app-capable" content="yes">
 <meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="BlockToBeat">
-<script>if (/Firefox\//.test(navigator.userAgent)) document.documentElement.classList.add('is-firefox');</script>
+<script>if (/Firefox\//.test(navigator.userAgent)) document.documentElement.classList.add('is-firefox');
+/* Chrome Android propose d'installer l'app : on garde l'invitation pour le bouton « Installer » du tuto (#44) */
+window.addEventListener('beforeinstallprompt', function(e){ e.preventDefault(); window.btbInstallPrompt = e; });</script>
 <link rel="manifest" href="manifest.webmanifest">
 <link rel="stylesheet" href="library.css">
 <link rel="icon" type="image/svg+xml" href="icon.svg">
@@ -101,6 +103,14 @@ button{cursor:pointer}
 /* Son bloqué par le navigateur au lancement : on invite à toucher l'écran */
 .sound-hint{position:fixed;inset:0;z-index:1200;display:flex;align-items:center;justify-content:center;padding:24px;background:rgba(12,5,10,.78);cursor:pointer;touch-action:none}
 .sound-hint[hidden]{display:none}
+/* Mini tuto « ajouter à l'écran d'accueil », dans le bas de l'écran de lancement, seulement hors de l'app installée */
+.sh-tuto{position:absolute;left:50%;bottom:calc(var(--gb) + 36px);transform:translateX(-50%);width:min(340px,calc(100% - 64px));box-sizing:border-box;padding:14px 16px;border-radius:16px;background:var(--panel);border:1px solid var(--line-2);color:var(--fg);text-align:left;cursor:default}
+.sh-tuto[hidden]{display:none}
+.sh-tuto strong{display:block;margin-bottom:8px;font-family:var(--f-display);font-size:15px}
+.sh-tuto ol{margin:0;padding-left:20px;display:flex;flex-direction:column;gap:5px;color:var(--muted);font-size:13.5px;line-height:1.4}
+.sh-tuto b{color:var(--fg)}
+.sh-tuto svg{vertical-align:-3px;color:var(--fg)}
+.sh-tuto .sh-install{margin-top:10px;width:100%;height:40px;border:0;border-radius:11px;background:var(--title);color:var(--title-ink);font-family:var(--f-body);font-weight:800;font-size:14px;cursor:pointer}
 .sound-hint p{margin:0;max-width:280px;color:var(--fg);font-family:var(--f-display);font-weight:700;font-size:18px;line-height:1.35;text-align:center;text-wrap:balance}
 .sh-c{position:absolute;width:38px;height:38px;border:0 solid var(--fg);opacity:.9;animation:hintbreath 2s ease-in-out infinite}
 .sh-tl{top:calc(var(--gt, 16px) + 8px);left:24px;border-top-width:3px;border-left-width:3px;border-top-left-radius:10px}
@@ -593,7 +603,7 @@ body.dragging,body.dragging *{cursor:grabbing!important}
 <section class="nav-page" id="pg-profile" hidden aria-label="Profile"><svg width="48" height="48" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><h2>Profile</h2><p>Ton compte et les paramètres de l’app.</p><span class="nav-soon">En travaux</span></section>
 <nav class="nav" id="nav" aria-label="Navigation"><button type="button" class="nav-btn" data-nav="learning" title="Learning"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M2 9l10-5 10 5-10 5-10-5z"/><path d="M6 11v5c0 1.5 3 3 6 3s6-1.5 6-3v-5"/><path d="M22 9v6"/></svg><span>Learning</span></button><button type="button" class="nav-btn" data-nav="lab" aria-current="page" title="Lab"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 3h6"/><path d="M10 3v6L4.5 18.5A1.7 1.7 0 0 0 6 21h12a1.7 1.7 0 0 0 1.5-2.5L14 9V3"/><path d="M7.5 14h9"/></svg><span>Lab</span></button><button type="button" class="nav-btn" data-nav="library" title="Library"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 4v16"/><path d="M8 4v16"/><path d="M12 5l4 15"/><path d="M16.5 4.5l3.5 15"/></svg><span>Library</span></button><button type="button" class="nav-btn" data-nav="profile" title="Profile"><svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.1" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="8" r="4"/><path d="M4 21c0-4 3.6-6.5 8-6.5s8 2.5 8 6.5"/></svg><span>Profile</span></button></nav>
 <div class="toast" id="toast" role="status" hidden></div>
-<div class="sound-hint" id="soundHint" role="button" aria-label="Touche l’écran pour lancer la musique" hidden><i class="sh-c sh-tl"></i><i class="sh-c sh-tr"></i><i class="sh-c sh-bl"></i><i class="sh-c sh-br"></i><p>Touche l’écran pour lancer la musique</p></div>
+<div class="sound-hint" id="soundHint" role="button" aria-label="Touche l’écran pour lancer la musique" hidden><i class="sh-c sh-tl"></i><i class="sh-c sh-tr"></i><i class="sh-c sh-bl"></i><i class="sh-c sh-br"></i><div class="sh-tuto" id="shTuto" hidden></div><p>Touche l’écran pour lancer la musique</p></div>
 <div class="ghost" id="ghost" hidden></div>
 
 <script>
@@ -4144,10 +4154,48 @@ var swallowPlay = false;
    alors on le dit clairement au lieu de laisser croire que l'app est muette */
 var soundHint = $('#soundHint');
 function audioLockCheck(){ soundHint.hidden = !(playing && ctx && ctx.state !== 'running'); }
+/* #44 : comment ajouter l'app à l'écran d'accueil, selon le système et le navigateur (rien si l'app est déjà installée) */
+function installSteps(){
+  var ua = navigator.userAgent;
+  var installed = (window.matchMedia && window.matchMedia('(display-mode: standalone)').matches) || navigator.standalone === true;
+  if (installed) return null;
+  var share = '<svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round" aria-label="Partager"><path d="M12 3v12"/><path d="M8 7l4-4 4 4"/><path d="M6 11v9h12v-9"/></svg>';
+  var ios = /iPhone|iPad|iPod/.test(ua) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  if (ios){
+    if (/CriOS/.test(ua)) return ['Touche '+share+' en haut à droite, dans la barre d’adresse.', 'Choisis <b>Sur l’écran d’accueil</b>.'];
+    if (/FxiOS/.test(ua)) return ['Touche le menu <b>☰</b>.', 'Choisis <b>Partager</b>, puis <b>Sur l’écran d’accueil</b>.'];
+    if (/EdgiOS|OPiOS|OPT\/|GSA\//.test(ua)) return ['Ouvre cette page dans <b>Safari</b>.', 'Touche '+share+', puis <b>Sur l’écran d’accueil</b>.'];
+    return ['Touche '+share+' en bas de l’écran (sur iOS récent, il est dans le menu <b>•••</b>).', 'Choisis <b>Sur l’écran d’accueil</b>, puis <b>Ajouter</b>.'];
+  }
+  if (/Android/.test(ua)){
+    if (/SamsungBrowser/.test(ua)) return ['Touche le menu <b>☰</b> en bas.', 'Choisis <b>Ajouter la page à</b>, puis <b>Écran d’accueil</b>.'];
+    if (/Firefox/.test(ua)) return ['Touche le menu <b>⋮</b>.', 'Choisis <b>Installer</b> ou <b>Ajouter à l’écran d’accueil</b>.'];
+    if (/EdgA/.test(ua)) return ['Touche le menu <b>•••</b> en bas.', 'Choisis <b>Ajouter au téléphone</b>.'];
+    if (/OPR\//.test(ua)) return ['Touche le menu <b>⋮</b>.', 'Choisis <b>Écran d’accueil</b>.'];
+    return ['Touche le menu <b>⋮</b> en haut à droite.', 'Choisis <b>Ajouter à l’écran d’accueil</b> ou <b>Installer l’application</b>.'];
+  }
+  return null;   /* ordinateur : pas de tuto */
+}
+function renderInstallTuto(){
+  var box = $('#shTuto'), steps = installSteps();
+  if (!steps){ box.hidden = true; return; }
+  box.innerHTML = '<strong>Ajoute BlockToBeat à ton écran d’accueil</strong><ol>'+steps.map(function(t){ return '<li>'+t+'</li>'; }).join('')+'</ol>'+
+    (window.btbInstallPrompt ? '<button type="button" class="sh-install">Installer l’app</button>' : '');
+  box.hidden = false;
+}
+renderInstallTuto();
+window.addEventListener('beforeinstallprompt', function(){ setTimeout(renderInstallTuto, 0); });
+/* le bouton « Installer » (Chrome Android) ouvre la fenêtre d'installation du navigateur */
+$('#shTuto').addEventListener('click', function(e){
+  if (!e.target.closest('.sh-install') || !window.btbInstallPrompt) return;
+  var pr = window.btbInstallPrompt; window.btbInstallPrompt = null;
+  pr.prompt(); renderInstallTuto();
+});
 /* l'écran d'attente capte le premier toucher : il lance la musique sans actionner ce qui est dessous */
 ['pointerdown', 'pointerup', 'click', 'touchstart', 'touchend'].forEach(function(ev){ soundHint.addEventListener(ev, function(e){ e.stopPropagation(); if (ev !== 'touchstart' && ev !== 'touchend') e.preventDefault(); }); });
 function unlockAudio(e){
   if (!ctx || ctx.state === 'running') return;
+  if (e && e.target && e.target.closest && e.target.closest('.sh-install')) return;   /* « Installer l'app » ne lance pas la musique */
   var r = ctx.resume(); if (r && r.then) r.then(audioLockCheck, function(){});
   if (playing){ startT = ctx.currentTime + .06; schedUntil = startT; }
   if (e && e.target && e.target.closest && e.target.closest('#play')) swallowPlay = true;   /* ce toucher sert à réveiller le son, pas à mettre en pause */
