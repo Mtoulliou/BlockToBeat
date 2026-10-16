@@ -1,5 +1,6 @@
 /* #55 Fin du son : un son perso relancé par la boucle coupe sa copie précédente au lieu de s'empiler ;
-   l'effet Durée (.clip) le coupe à la longueur d'un pas. 120 BPM, 4 pas par tour : un pas = 0,5 s. */
+   l'effet Durée (.clip) le coupe à la longueur d'un pas. 120 BPM, 4 pas par tour : un pas = 0,5 s.
+   Le son dure 1,9 s : assez pour déborder sur le pas suivant, sans dépasser 2 s (au-delà, il aurait son bloc Audio). */
 const { openApp, dismissLaunch } = require('./lib');
 function wav(sec) {
   const sr = 22050, n = Math.floor(sr * sec), b = Buffer.alloc(44 + n * 2);
@@ -13,7 +14,7 @@ const capture = () => {
   window.__src = []; const c = AudioContext.prototype.createBufferSource;
   AudioContext.prototype.createBufferSource = function(){
     const s = c.call(this), rec = { start: null, stop: Infinity }, st = s.start.bind(s), sp = s.stop.bind(s);
-    s.start = (t, ...a) => { if (s.buffer && s.buffer.duration > 2.5) { rec.start = t; window.__src.push(rec); } return st(t, ...a); };
+    s.start = (t, ...a) => { if (s.buffer && s.buffer.duration > 1.5) { rec.start = t; window.__src.push(rec); } return st(t, ...a); };
     s.stop = (t) => { rec.stop = Math.min(rec.stop, t); return sp(t); };
     return s;
   };
@@ -21,7 +22,7 @@ const capture = () => {
 async function run(url, fx) {
   const block = { id: 'bs', type: 's', muted: false, steps: ['long', '~', 'long', '~'], fx };
   const p = await openApp(url, { project: { bpm: 120, stacks: [{ id: 'st', title: 'Test', x: 0, y: 0, muted: false, blocks: [block] }] }, init: capture });
-  await p.setInputFiles('#usndFile', { name: 'Long.wav', mimeType: 'audio/wav', buffer: wav(3) });
+  await p.setInputFiles('#usndFile', { name: 'Long.wav', mimeType: 'audio/wav', buffer: wav(1.9) });
   await p.waitForTimeout(600);
   await p.reload(); await p.waitForTimeout(800); await dismissLaunch(p);
   await p.click('#undo'); await p.waitForTimeout(400);

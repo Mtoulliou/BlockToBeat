@@ -15,9 +15,9 @@ module.exports = async ({ url, check }) => {
   const project = { stacks: [{ id: 'st', title: 'Voix', x: 0, y: 0, muted: false, blocks: [{ id: 'bs', type: 's', muted: false, steps: ['ma_voix', '~', 'ma_voix', '~'], fx: [] }] }] };
   const p = await openApp(url, { project, init: capture });
 
-  await p.setInputFiles('#usndFile', { name: 'trop gros.mp3', mimeType: 'audio/mpeg', buffer: Buffer.alloc(6 * 1024 * 1024) });
+  await p.setInputFiles('#usndFile', { name: 'trop gros.mp3', mimeType: 'audio/mpeg', buffer: Buffer.alloc(31 * 1024 * 1024) });
   await p.waitForTimeout(300);
-  check(/5 Mo/.test(await toast(p)), 'un fichier de 6 Mo est refusé avec un message clair');
+  check(/30 Mo/.test(await toast(p)), 'un fichier de 31 Mo est refusé avec un message clair');
 
   await p.setInputFiles('#usndFile', { name: 'Ma voix.wav', mimeType: 'audio/wav', buffer: wav(.5) });
   await p.waitForTimeout(800);
