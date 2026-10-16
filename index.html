@@ -163,7 +163,7 @@ body.rec-on .isl-palette .pi{touch-action:none}
 .edge-light::before{content:'';position:absolute;inset:0;padding:calc(1.5px + var(--flash)*1px);opacity:.55;
   background:conic-gradient(from var(--edge-a, 0deg), rgba(var(--flash-rgb),0) 0deg, rgba(var(--flash-rgb),.95) 40deg, rgba(255,241,232,.9) 52deg, rgba(var(--flash-rgb),0) 110deg, rgba(var(--flash-rgb),0) 180deg, rgba(var(--flash-rgb),.95) 220deg, rgba(255,241,232,.9) 232deg, rgba(var(--flash-rgb),0) 290deg);
   -webkit-mask:linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);-webkit-mask-composite:xor;mask:linear-gradient(#000 0 0) content-box exclude, linear-gradient(#000 0 0)}
-body.is-playing .edge-light{opacity:1}
+body.is-playing.is-sounding .edge-light{opacity:1}   /* le liseré ne s'allume que quand un son joue vraiment (#41) */
 .rec-help{margin:0;font-size:11.5px;line-height:1.45;color:var(--dim)}
 .pop-select{width:100%;height:38px;box-sizing:border-box;border-radius:10px;border:1px solid var(--line-2);background:var(--bg);color:var(--fg);padding:0 10px;font-family:var(--f-mono);font-size:13px}
 .pop-lab{flex:none;width:44px;font-size:12px;color:var(--muted)}
@@ -3186,10 +3186,13 @@ function dance(now){
   var blink = ts < blinkUntil;
   var dE = Math.exp(-(ts - danceD)/.4), mE = Math.exp(-(ts - danceM)/.9);   /* énergie des percussions et de la mélodie */
   if (live && dE < .03 && mE < .03) live = false;                           /* en lecture mais rien ne sonne : au calme */
+  var sounding = live && !reduceMotion;
+  if (document.body.classList.contains('is-sounding') !== sounding) document.body.classList.toggle('is-sounding', sounding);
   if (!live || reduceMotion){
-    drawWave(reduceMotion ? 3.5 : 3 + Math.sin(ts*1.4)*.8, reduceMotion ? 0 : ts*1.6, 'wave', 0, blink, 0);
+    /* sans musique, la vague ne danse pas : elle respire à peine, et ne bouge pas */
+    drawWave(reduceMotion ? 3.5 : 3 + Math.sin(ts*.9)*.25, reduceMotion ? 0 : ts*.35, 'wave', 0, blink, 0);
     mascot.style.transformOrigin = '50% 100%';
-    mascot.style.transform = reduceMotion ? 'none' : 'translateY(' + (Math.sin(ts*1.1)*.8).toFixed(2) + 'px) rotate(' + (Math.sin(ts*.7)*3).toFixed(1) + 'deg)';
+    mascot.style.transform = 'none';
     danceT = ts;
     return;
   }
