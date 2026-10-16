@@ -1,4 +1,4 @@
-/* BlockToBeat : met l'app en cache pour qu'elle s'ouvre même sans réseau.
+/* Strudy : met l'app en cache pour qu'elle s'ouvre même sans réseau.
    VERSION est remplacée automatiquement au déploiement par le numéro du commit (voir .github/workflows/pages.yml). */
 const VERSION = 'blocktobeat-local';
 /* La version dev vit dans le sous-dossier dev/ du même site : chaque version a son propre cache

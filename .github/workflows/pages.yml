@@ -41,7 +41,7 @@ jobs:
           sed -i "s/^const VERSION = .*/const VERSION = 'blocktobeat-$(git -C site/dev rev-parse --short HEAD)';/" site/dev/sw.js
           rm -rf site/.git site/.github site/tests site/dev/.git site/dev/.github site/dev/tests
           # La version dev s'installe comme une app à part, avec un nom distinct
-          sed -i 's/"name": "BlockToBeat"/"name": "BlockToBeat (dev)"/; s/"short_name": "BlockToBeat"/"short_name": "BTB dev"/' site/dev/manifest.webmanifest
+          sed -i 's/"name": "Strudy"/"name": "Strudy (dev)"/; s/"short_name": "Strudy"/"short_name": "Strudy dev"/' site/dev/manifest.webmanifest
       - uses: actions/configure-pages@v5
       - uses: actions/upload-pages-artifact@v3
         with:
