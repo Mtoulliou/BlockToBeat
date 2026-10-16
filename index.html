@@ -332,6 +332,13 @@ body.drag-mv .isl-trash{display:flex}
 .b-s .cell{font-family:var(--f-body);font-size:12.5px;letter-spacing:-.01em}
 [data-snd="bd"]{--snd:#FF5C8F}[data-snd="sd"]{--snd:#FF9A4D}[data-snd="cp"]{--snd:#FFD95A}[data-snd="hh"]{--snd:#62E3F2}
 [data-snd="oh"]{--snd:#52D8A8}[data-snd="rim"]{--snd:#BDF26A}[data-snd="lt"]{--snd:#C4A2FF}[data-snd="cr"]{--snd:#8DB4FF}
+[data-snd="usr"]{--snd:#FFB0E1}
+.pi-import{cursor:pointer}
+.chip--import{border:1.5px dashed var(--line-2);color:var(--muted);background:none;font-family:var(--f-body);font-size:13px}
+.pi-import:hover .chip--import{color:var(--fg);border-color:var(--muted)}
+.pi-del{border:0;background:none;color:var(--dim);font-size:15px;line-height:1;padding:4px 6px;border-radius:8px;cursor:pointer;align-self:center}
+.pi-del:hover,.pi-del.arm{color:var(--danger)}
+.pi-del.arm{font-size:12px;font-weight:700;box-shadow:inset 0 0 0 1.5px var(--danger)}
 .b-s .cell[data-snd]:not(.x),.chip--sound[data-snd],.pick--s[data-snd],.pad--s[data-snd]{color:var(--snd);box-shadow:inset 0 0 0 1.5px var(--snd)}
 .b-s .cell[data-snd]{background:color-mix(in srgb, var(--snd) 16%, #1A0B14)}
 .chip--sound[data-snd]{font-family:var(--f-body);font-size:13px;min-width:58px}
@@ -618,8 +625,98 @@ var SOUNDS = [
 ];
 var SOUND_FR = {bd:'Boum', sd:'Tchak', cp:'Clap', hh:'Tss', oh:'Pshh', rim:'Tok', lt:'Toum', cr:'Crash', white:'Souffle', pink:'Souffle', brown:'Souffle'};
 var SOUND_D = {}; SOUNDS.forEach(function(s){ SOUND_D[s.v] = s.d; s.fr = SOUND_FR[s.v]; });
-function sndName(v){ var k = String(v).split(':')[0]; return SOUND_FR[k] || String(v); }
-function sndKey(v){ var k = String(v).split(':')[0]; return SOUND_FR[k] ? k : 'x'; }
+function sndName(v){ var k = String(v).split(':')[0]; return SOUND_FR[k] || (USER_LABEL[k] ? USER_LABEL[k] : String(v)); }
+function sndKey(v){ var k = String(v).split(':')[0]; return SOUND_FR[k] ? k : USER_BUF[k] ? 'usr' : 'x'; }
+function sndDesc(v){ var k = String(v).split(':')[0]; return SOUND_D[k] || (USER_LABEL[k] ? 'Mon son' : 'Son inconnu sur cet appareil'); }
+
+/* ---------- Mes sons (#55) : sons importés par l'utilisateur, gardés sur l'appareil (IndexedDB) ----------
+   Le projet ne garde que le nom du son (comme « bd ») : s("ma_voix") dans le code. Le fichier reste sur l'appareil. */
+var USER_SOUNDS = [];   /* [{id, name, label, size, created}] */
+var USER_LABEL = {};    /* nom → étiquette affichée */
+var USER_BUF = {};      /* nom → AudioBuffer décodé */
+var USER_MAX = 5*1024*1024;   /* 5 Mo par son court */
+var USND_DB = 'blocktobeat-sounds' + (/-dev$/.test(KEY) ? '-dev' : ''), usndDbp = null;
+function usndDb(){
+  if (usndDbp) return usndDbp;
+  usndDbp = new Promise(function(res, rej){
+    if (!window.indexedDB){ rej(new Error('indexeddb')); return; }
+    var r = indexedDB.open(USND_DB, 1);
+    r.onupgradeneeded = function(){ if (!r.result.objectStoreNames.contains('sounds')) r.result.createObjectStore('sounds', {keyPath:'id'}); };
+    r.onsuccess = function(){ res(r.result); };
+    r.onerror = function(){ rej(r.error); };
+  });
+  return usndDbp;
+}
+function usndTx(mode, fn){
+  return usndDb().then(function(d){ return new Promise(function(res, rej){
+    var t = d.transaction('sounds', mode), out = fn(t.objectStore('sounds'));
+    t.oncomplete = function(){ res(out && 'result' in out ? out.result : out); };
+    t.onerror = t.onabort = function(){ rej(t.error); };
+  }); });
+}
+/* Décodage sans attendre le contexte audio : un AudioBuffer peut ensuite servir dans n'importe quel contexte (lecture, export .wav) */
+function decodeSound(data){
+  var AC = window.OfflineAudioContext || window.webkitOfflineAudioContext;
+  return new Promise(function(res, rej){
+    var pr = new AC(1, 1, 44100).decodeAudioData(data.slice(0), res, rej);   /* rappels pour les vieux Safari */
+    if (pr && pr.catch) pr.catch(function(){});                               /* l'erreur passe déjà par rej */
+  });
+}
+function soundSlug(label){
+  var v = String(label).normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase().replace(/[^a-z0-9]+/g, '_').replace(/^_+|_+$/g, '').slice(0, 20) || 'son';
+  if (/^\d/.test(v)) v = 'son_' + v;
+  var base = v, k = 2;
+  while (SOUND_FR[v] || DRUM[v] || USER_LABEL[v]) v = base + '_' + (k++);
+  return v;
+}
+function loadUserSounds(){
+  return usndTx('readonly', function(st){ return st.getAll(); }).then(function(rows){
+    rows.sort(function(a, b){ return a.created - b.created; });
+    return Promise.all(rows.map(function(r){
+      return decodeSound(r.data).then(function(buf){ USER_BUF[r.name] = buf; }, function(){});
+    })).then(function(){
+      USER_SOUNDS = rows.map(function(r){ return {id:r.id, name:r.name, label:r.label, size:r.size, created:r.created}; });
+      USER_LABEL = {}; USER_SOUNDS.forEach(function(u){ USER_LABEL[u.name] = u.label; });
+    });
+  }).then(function(){ refreshSoundsPalette(); renderAll(); }, function(){});
+}
+function importSoundFile(file){
+  if (!file) return;
+  if (file.size > USER_MAX){ toast('Ce fichier fait ' + (file.size/1048576).toFixed(1).replace('.', ',') + ' Mo : la limite est de 5 Mo pour un son.'); return; }
+  var label = String(file.name || 'Mon son').replace(/\.[a-z0-9]+$/i, '').slice(0, 24);
+  file.arrayBuffer().then(function(data){
+    return decodeSound(data).then(function(buf){
+      var rec = {id:uid(), name:soundSlug(label), label:label, size:file.size, created:Date.now(), data:data};
+      return usndTx('readwrite', function(st){ st.put(rec); }).then(function(){
+        USER_BUF[rec.name] = buf; USER_LABEL[rec.name] = label;
+        USER_SOUNDS.push({id:rec.id, name:rec.name, label:label, size:rec.size, created:rec.created});
+        refreshSoundsPalette(); renderAll();
+        toast('« ' + label + ' » est dans tes sons : glisse-le dans un bloc Son.');
+      });
+    }, function(){ toast('Ce fichier n’est pas lu par ton navigateur. Essaie un .mp3, un .m4a ou un .wav.'); });
+  }).catch(function(){ toast('Impossible d’enregistrer ce son sur l’appareil.'); });
+}
+function deleteUserSound(id){
+  var u = USER_SOUNDS.filter(function(x){ return x.id===id; })[0]; if (!u) return;
+  usndTx('readwrite', function(st){ st.delete(id); }).then(function(){
+    USER_SOUNDS = USER_SOUNDS.filter(function(x){ return x.id!==id; });
+    delete USER_BUF[u.name]; delete USER_LABEL[u.name];
+    refreshSoundsPalette(); renderAll();
+    toast('« ' + u.label + ' » est supprimé. Les blocs qui l’utilisent jouent un silence à sa place.');
+  });
+}
+function usedUserSounds(){
+  var used = {};
+  P.stacks.forEach(function(st){ st.blocks.forEach(function(b){
+    if (b.type!=='s') return;
+    sLines(b).forEach(function(l){ l.forEach(function(t){ var k = String(t).split(':')[0]; if (!SOUND_FR[k] && k!=='~' && k!=='_') used[k] = 1; }); });
+  }); });
+  return Object.keys(used);
+}
+function userSoundsNote(){
+  var u = usedUserSounds();
+  return u.length ? '// Sons perso, gardés sur cet appareil (strudel.cc ne peut pas les charger) : ' + u.join(', ') : '';
+}
 var FX = {
   gain:     {cat:'Son', label:'Volume', min:0, max:1.5, step:.05, def:.8, desc:'Règle le volume du bloc.'},
   velocity: {cat:'Son', label:'Vélocité', min:0, max:1, step:.05, def:.8, desc:'Force de frappe de chaque note : multiplie le volume.'},
@@ -638,6 +735,7 @@ var FX = {
   delayfeedback:{cat:'Espace', label:'Répétitions', min:0, max:.95, step:.05, def:.5, desc:'Combien de fois l’écho se répète.'},
   crush:    {cat:'Couleur', label:'Bitcrush', min:1, max:16, step:1, def:4, desc:'Réduit la résolution : plus le chiffre est bas, plus le son est sale.'},
   shape:    {cat:'Couleur', label:'Saturation', min:0, max:.95, step:.05, def:.4, desc:'Sature et épaissit le son.'},
+  vowel:    {cat:'Couleur', label:'Voyelle', select:['a','e','i','o','u'], def:'a', desc:'Fait chanter le son sur une voyelle : a, é, i, o, ou. Sur une voix, change ce qu’elle chante.'},
   fast:     {cat:'Temps', label:'Accélérer', min:.25, max:8, step:.25, def:2, desc:'Joue la boucle plus vite : ×2 la fait tourner deux fois par cycle.'},
   slow:     {cat:'Temps', label:'Ralentir', min:.25, max:8, step:.25, def:2, desc:'Étire la boucle : ÷2 la fait durer deux cycles.'},
   ply:      {cat:'Temps', label:'Répéter', min:1, max:8, step:1, def:2, desc:'Joue chaque note plusieurs fois de suite.'},
@@ -658,14 +756,14 @@ var SCALES = {
 var SCALE_FR = {minor:'Mineur', major:'Majeur', dorian:'Dorien', phrygian:'Phrygien', lydian:'Lydien', mixolydian:'Mixolydien', chromatic:'Chromatique'};
 var SYNTHS = {triangle:'triangle', sawtooth:'sawtooth', square:'square', sine:'sine', piano:'piano', supersaw:'supersaw',
   gm_acoustic_guitar_steel:1, gm_acoustic_guitar_nylon:1, gm_electric_guitar_clean:1, gm_acoustic_bass:1, gm_electric_bass_finger:1,
-  gm_violin:1, gm_cello:1, gm_string_ensemble_1:1, gm_flute:1, gm_trumpet:1, gm_alto_sax:1, gm_drawbar_organ:1, gm_epiano1:1, gm_marimba:1, gm_choir_aahs:1};
+  gm_violin:1, gm_cello:1, gm_string_ensemble_1:1, gm_flute:1, gm_trumpet:1, gm_alto_sax:1, gm_drawbar_organ:1, gm_epiano1:1, gm_marimba:1, gm_choir_aahs:1, gm_voice_oohs:1, gm_synth_voice:1};
 var NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 var NOTE_FR = ['Do','Do♯','Ré','Ré♯','Mi','Fa','Fa♯','Sol','Sol♯','La','La♯','Si'];
 var SYNTH_FR = {triangle:'Doux', piano:'Piano', sawtooth:'Brillant', square:'Rétro 8-bit', sine:'Pur', supersaw:'Supersaw',
   gm_acoustic_guitar_steel:'Guitare folk', gm_acoustic_guitar_nylon:'Guitare classique', gm_electric_guitar_clean:'Guitare électrique',
   gm_acoustic_bass:'Basse acoustique', gm_electric_bass_finger:'Basse électrique', gm_violin:'Violon', gm_cello:'Violoncelle',
   gm_string_ensemble_1:'Cordes', gm_flute:'Flûte', gm_trumpet:'Trompette', gm_alto_sax:'Saxophone', gm_drawbar_organ:'Orgue',
-  gm_epiano1:'Piano électrique', gm_marimba:'Marimba', gm_choir_aahs:'Chœur'};
+  gm_epiano1:'Piano électrique', gm_marimba:'Marimba', gm_choir_aahs:'Chœur', gm_voice_oohs:'Voix douce', gm_synth_voice:'Voix lead'};
 var GM_FR = [[/guitar/, 'Guitare'], [/bass/, 'Basse'], [/cello/, 'Violoncelle'], [/viola/, 'Alto'], [/violin|fiddle/, 'Violon'], [/string/, 'Cordes'],
   [/flute|recorder|piccolo/, 'Flûte'], [/organ/, 'Orgue'], [/piano|epiano|rhodes/, 'Piano'], [/pad/, 'Nappe'], [/brass|trumpet|trombone|horn/, 'Cuivres'], [/sax/, 'Saxo'], [/choir|voice|aahs|oohs/, 'Chœur'], [/bell|marimba|vibraphone|xylophone|celesta|glock/, 'Clochettes']];
 /* « Basse 808 » n'est pas un timbre Strudel à part : c'est le timbre Pur (sinus) dans le grave, avec ses réglages.
@@ -712,7 +810,8 @@ function timbreOf(k){
   if (/sax/.test(k)) return {voice:'sax', lvl:.55, A:.04, D:.2, S:.85, R:.14};
   if (/brass|trumpet|trombone|horn|tuba/.test(k)) return {voice:'brass', lvl:.55, A:.03, D:.2, S:.85, R:.14};
   if (/organ/.test(k)) return {voice:'organ', lvl:.55, A:.005, D:.05, S:1, R:.08};
-  if (/choir|voice|aahs|oohs/.test(k)) return {voice:'choir', lvl:.7, A:.3, D:.4, S:.9, R:.6};
+  if (/synth_voice|vox/.test(k)) return {voice:'vox', vowel:'a', lvl:.95, A:.02, D:.2, S:.85, R:.16};
+  if (/choir|voice|aahs|oohs/.test(k)) return {voice:'choir', vowel:/oohs/.test(k) ? 'u' : 'a', lvl:.7, A:/oohs/.test(k) ? .15 : .3, D:.4, S:.9, R:.6};
   if (/pad/.test(k)) return {voice:'bowed', voices:[-10, -3, 3, 10], lp:1800, body:300, body2:1500, vib:4, lvl:.4, A:.5, D:.5, S:.85, R:1};
   if (/marimba|xylophone|vibraphone|celesta|glock|kalimba|bell|music_box/.test(k)) return {voice:'mallet', ring:.7, lvl:.9, A:.001, Df:function(f){ return Math.max(.25, Math.min(1.4, .9*Math.pow(440/f, .6))); }, S:0, R:.25, ring:/vibraphone|celesta|glock|bell|music_box/.test(k)};
   var base = /^(triangle|sine|sawtooth|square)$/.test(k) ? k : 'triangle';
@@ -758,7 +857,9 @@ var REC_INST = [
   {id:'organ',  label:'Orgue',         synth:'gm_drawbar_organ', root:'A3', fx:[{type:'gain', v:.4}], g:'Instruments'},
   {id:'epiano', label:'Piano électrique', synth:'gm_epiano1', root:'A3', fx:[{type:'gain', v:.5}], g:'Instruments'},
   {id:'marimba', label:'Marimba',      synth:'gm_marimba', root:'A4', fx:[{type:'gain', v:.6}], g:'Instruments'},
-  {id:'choir',  label:'Chœur',         synth:'gm_choir_aahs', root:'A3', fx:[{type:'room', v:.6}, {type:'gain', v:.4}], g:'Instruments'}
+  {id:'choir',  label:'Chœur',         synth:'gm_choir_aahs', root:'A3', fx:[{type:'room', v:.6}, {type:'gain', v:.4}], g:'Voix'},
+  {id:'voixdouce', label:'Voix douce',  synth:'gm_voice_oohs', root:'A3', fx:[{type:'room', v:.5}, {type:'gain', v:.45}], g:'Voix'},
+  {id:'voixlead', label:'Voix lead',    synth:'gm_synth_voice', root:'A4', fx:[{type:'room', v:.3}, {type:'delay', v:.25}, {type:'gain', v:.45}], g:'Voix'}
 ];
 function rootFR(r){ var m = /^([A-G]#?)(\d)$/.exec(r); return m ? NOTE_FR[NOTE_NAMES.indexOf(m[1])]+' '+m[2] : r; }
 var ROOTS = []; [1,2,3,4,5].forEach(function(o){ NOTE_NAMES.forEach(function(n){ ROOTS.push(n+o); }); });
@@ -1054,7 +1155,7 @@ function cellHTML(st, b, l, i, t){
   if (hold) return '<button type="button" class="cell hold'+(picked?' is-picked':'')+(arr0[i+1]==='_'?' held':'')+'" data-drop="cell" data-act="cell"'+
     attrs({s:st.id, b:b.id, l:l, i:i, key:b.id+':'+l+':'+i})+' aria-label="Pas '+(i+1)+' : la note continue"><span class="hold-bar"></span></button>';
   var shown = rest ? '·' : isS ? sndName(t) : t;
-  var aria = rest ? 'silence' : isS ? (SOUND_D[String(t).split(':')[0]] || t) : 'degré '+t+(/^-?\d+$/.test(t) ? ', '+degName(b, +t) : '');
+  var aria = rest ? 'silence' : isS ? sndName(t)+', '+sndDesc(t) : 'degré '+t+(/^-?\d+$/.test(t) ? ', '+degName(b, +t) : '');
   return '<button type="button" class="cell'+(rest?' rest':'')+(held?' held':'')+(picked?' is-picked':'')+'" data-drop="cell" data-act="cell"'+
     (isS && !rest ? ' data-snd="'+sndKey(t)+'"' : '')+
     attrs({s:st.id, b:b.id, l:l, i:i, key:b.id+':'+l+':'+i})+
@@ -1291,6 +1392,7 @@ function songVars(){
 }
 function genSongCode(){
   var out = ['setcpm('+P.bpm+'/4)'], vars = songVars(), L = songLanes(), T = songTotal(L);
+  if (userSoundsNote()) out.push(userSoundsNote());
   P.stacks.forEach(function(st){ st.blocks.forEach(function(b){ if (b.type==='code' && !b.prefix){ out.push(''); out.push(b.text); } }); });
   P.stacks.forEach(function(st){
     out.push('');
@@ -1312,6 +1414,7 @@ function genSongCode(){
 function genCode(){
   if (songOn() && songHas()) return genSongCode();
   var out = ['setcpm('+P.bpm+'/4)'];
+  if (userSoundsNote()) out.push(userSoundsNote());
   P.stacks.forEach(function(st){
     out.push('');
     out.push('// '+st.title.replace(/\n/g,' '));
@@ -1891,7 +1994,9 @@ function buildPalette(){
     ]},
     {id:'sons', name:'Sons', help:'Glisse un son dans un bloc Son. Touche-le pour l’écouter.', items:
       SOUNDS.map(function(s){ return {p:{k:'sound', v:s.v}, chip:'chip--sound', label:s.fr, d:s.d, snd:s.v}; })
-      .concat([{p:{k:'rest', v:'~'}, chip:'chip--rest', label:'~', d:'Silence'}])},
+      .concat([{p:{k:'rest', v:'~'}, chip:'chip--rest', label:'~', d:'Silence'}])
+      .concat(USER_SOUNDS.map(function(u){ return {p:{k:'sound', v:u.name}, chip:'chip--sound', label:u.label, d:'Mon son', snd:'usr', del:u.id}; }))
+      .concat([{importer:true}])},
     {id:'notes', name:'Notes', help:'Degrés de la gamme : 0 est la note de départ, 7 la même une octave plus haut. Glisse-les dans une ligne de notes.', grid:true, items:
       ['0','1','2','3','4','5','6','7','8','9'].map(function(n){ return {p:{k:'note', v:n}, chip:'chip--note', label:n, d:'Degré '+n}; })
       .concat([{p:{k:'rest', v:'~'}, chip:'chip--rest', label:'~', d:'Silence'}])},
@@ -1919,13 +2024,34 @@ function buildPalette(){
     h += '<section class="pal-sec'+(i===0?' is-active':'')+'" data-sec="'+s.id+'"><h3>'+s.name+'</h3><p class="pal-help">'+s.help+'</p><div class="pal-list'+(s.grid?' pal-list--grid':'')+'">';
     s.items.forEach(function(it){
       if (it.inst){ h += '<label class="pal-inst">'+instSelect('inst-sel')+'</label>'; return; }
+      if (it.importer){
+        h += '<label class="pi pi-import" title="Importer un son (mp3, m4a, wav)"><span class="chip chip--import">+ Importer un son</span><span class="desc">mp3, m4a ou wav, 5 Mo au plus</span>'+
+          '<input type="file" id="usndFile" accept="audio/*,.mp3,.m4a,.wav,.aac,.ogg" hidden></label>';
+        return;
+      }
       h += '<button type="button" class="pi" data-pal=\''+JSON.stringify(it.p)+'\' title="'+esc(it.d)+'" aria-label="'+esc(it.label+' : '+it.d)+'">'+
-        '<span class="chip '+it.chip+'"'+(it.snd?' data-snd="'+it.snd+'"':'')+(it.heat?' style="--heat:'+it.heat+'"':'')+'>'+esc(it.label)+'</span>'+(s.grid?'':'<span class="desc">'+esc(it.d)+'</span>')+'</button>';
+        '<span class="chip '+it.chip+'"'+(it.snd?' data-snd="'+it.snd+'"':'')+(it.heat?' style="--heat:'+it.heat+'"':'')+'>'+esc(it.label)+'</span>'+(s.grid?'':'<span class="desc">'+esc(it.d)+'</span>')+'</button>'+
+        (it.del ? '<button type="button" class="pi-del" data-usnd-del="'+it.del+'" aria-label="Supprimer le son '+esc(it.label)+'" title="Supprimer ce son">×</button>' : '');
     });
     h += '</div></section>';
   });
   palette.innerHTML = h;
 }
+/* Après un import, on reconstruit la palette sans quitter l'onglet Sons */
+function refreshSoundsPalette(){
+  var cur = palette.querySelector('[data-tab][aria-selected="true"]'), tab = cur ? cur.dataset.tab : 'blocs';
+  buildPalette();
+  var b = palette.querySelector('[data-tab="'+tab+'"]'); if (b) b.click();
+}
+palette.addEventListener('change', function(e){ if (e.target.id==='usndFile'){ importSoundFile(e.target.files[0]); e.target.value = ''; } });
+/* Supprimer un son : un premier toucher demande confirmation, le second supprime */
+palette.addEventListener('click', function(e){
+  var d = e.target.closest('[data-usnd-del]'); if (!d) return;
+  e.stopPropagation();
+  if (d.classList.contains('arm')){ deleteUserSound(d.dataset.usndDel); return; }
+  d.classList.add('arm'); d.textContent = 'Supprimer ?';
+  setTimeout(function(){ if (d.isConnected){ d.classList.remove('arm'); d.textContent = '×'; } }, 3000);
+}, true);
 palette.addEventListener('click', function(e){
   var t = e.target.closest('[data-tab]');
   if (!t) return;
@@ -1934,7 +2060,7 @@ palette.addEventListener('click', function(e){
 });
 
 /* ---------- Audio engine ---------- */
-var ctx = null, master, analyser, revIn, dlyIn, dly, noiseBuf;
+var ctx = null, master, duck, analyser, revIn, dlyIn, dly, noiseBuf;
 var playing = false, startT = 0, schedUntil = 0, timer = null;
 function cycleDur(){ return 240 / P.bpm; }
 /* ---------- Mode morceau : pistes parallèles, chaque piste enchaîne des sections (groupes) ou des silences ---------- */
@@ -1973,25 +2099,69 @@ function initAudio(given){
   var AC = window.AudioContext || window.webkitAudioContext;
   if (!given && !AC) { toast('Ce navigateur ne permet pas de jouer du son.'); return; }
   ctx = given || new AC();
-  var comp = ctx.createDynamicsCompressor(); comp.threshold.value = -14; comp.ratio.value = 4;
+  /* Bus master : saturation douce, compression qui « colle » le mix, limiteur, puis un écrêteur doux qui ne dépasse jamais 1.
+     L'ancien compresseur seul laissait les crêtes monter à 1,5 : le son saturait. */
+  var sat = ctx.createWaveShaper(); sat.curve = tanhCurve(1.6); sat.oversample = '4x';
+  var glue = ctx.createDynamicsCompressor(); glue.threshold.value = -18; glue.knee.value = 8; glue.ratio.value = 2.5; glue.attack.value = .012; glue.release.value = .2;
+  var lim = ctx.createDynamicsCompressor(); lim.threshold.value = -2; lim.knee.value = 0; lim.ratio.value = 20; lim.attack.value = .002; lim.release.value = .08;
+  var trim = ctx.createGain(); trim.gain.value = .31;   /* les compresseurs ajoutent du gain tout seuls ; l'écrêteur attend une entrée divisée par 2 */
+  var clip = ctx.createWaveShaper(); clip.curve = softClipCurve(); clip.oversample = '4x';
   master = ctx.createGain(); master.gain.value = .85;
   analyser = ctx.createAnalyser(); analyser.fftSize = 512;
-  master.connect(comp); comp.connect(analyser); analyser.connect(ctx.destination);
+  master.connect(sat); sat.connect(glue); glue.connect(lim); lim.connect(trim); trim.connect(clip); clip.connect(analyser); analyser.connect(ctx.destination);
+  /* Pompage : tout sauf la batterie passe par « duck », qui baisse à chaque grosse caisse puis remonte (duckAt) */
+  duck = ctx.createGain(); duck.connect(master);
   noiseBuf = ctx.createBuffer(1, Math.floor(ctx.sampleRate*2), ctx.sampleRate);
   var nd = noiseBuf.getChannelData(0); for (var i=0;i<nd.length;i++) nd[i] = Math.random()*2-1;
-  var conv = ctx.createConvolver(); conv.buffer = impulse(2.4, 2.6);
-  revIn = ctx.createGain(); revIn.connect(conv); conv.connect(master);
+  var conv = ctx.createConvolver(); conv.buffer = impulse(2.6);
+  var revHp = ctx.createBiquadFilter(); revHp.type = 'highpass'; revHp.frequency.value = 250;   /* la réverb ne brouille pas le grave */
+  revIn = ctx.createGain(); revIn.connect(conv); conv.connect(revHp); revHp.connect(duck);
   dly = ctx.createDelay(3); var fb = ctx.createGain(); fb.gain.value = .38;
   var dlf = ctx.createBiquadFilter(); dlf.type = 'lowpass'; dlf.frequency.value = 3200;
-  dlyIn = ctx.createGain(); dlyIn.connect(dly); dly.connect(dlf); dlf.connect(fb); fb.connect(dly); dlf.connect(master);
+  dlyIn = ctx.createGain(); dlyIn.connect(dly); dly.connect(dlf); dlf.connect(fb); fb.connect(dly); dlf.connect(duck);
   dly.delayTime.value = cycleDur()*3/16;
   if (given) blockDelays = {};
 }
 function updateDelay(){ if (ctx && dly) dly.delayTime.setTargetAtTime(cycleDur()*3/16, ctx.currentTime, .05); }
-function impulse(sec, decay){
-  var len = Math.floor(ctx.sampleRate*sec), b = ctx.createBuffer(2, len, ctx.sampleRate);
-  for (var c=0;c<2;c++){ var d = b.getChannelData(c); for (var i=0;i<len;i++) d[i] = (Math.random()*2-1)*Math.pow(1-i/len, decay); }
+/* Réverb : quelques réflexions précoces, puis une queue stéréo décorrélée qui s'assombrit en décroissant, avec un petit pré-délai.
+   L'ancienne version (bruit blanc qui décroît) donnait un souffle aigu et métallique. */
+function impulse(sec){
+  var sr = ctx.sampleRate, pre = Math.floor(sr*.022), len = Math.floor(sr*sec) + pre, b = ctx.createBuffer(2, len, sr);
+  for (var c=0;c<2;c++){
+    var d = b.getChannelData(c), lp = 0;
+    [.011, .019, .027, .041].forEach(function(tt, k){ d[pre + Math.floor(sr*(tt + c*.003))] = (k % 2 ? -.5 : .6)*(1 - k*.15); });
+    for (var i=0;i<len-pre;i++){
+      var x = i/(len-pre), coef = .15 + .8*x;
+      lp = lp + (1 - coef)*((Math.random()*2-1) - lp);
+      d[pre + i] += lp*Math.pow(1-x, 2.2)*Math.exp(-3*x)*1.6;
+    }
+  }
   return b;
+}
+function tanhCurve(drive){ var n = 2048, c = new Float32Array(n); for (var i=0;i<n;i++){ var x = i/(n-1)*2 - 1; c[i] = Math.tanh(x*drive)/Math.tanh(drive); } return c; }
+/* Écrêteur doux : transparent sous 0,8, ne dépasse jamais 1. L'entrée est divisée par 2, la courbe couvre donc de -2 à 2. */
+function softClipCurve(){ var n = 4096, c = new Float32Array(n); for (var i=0;i<n;i++){ var x = (i/(n-1)*2 - 1)*2, a = Math.abs(x); c[i] = (x < 0 ? -1 : 1)*(a < .8 ? a : .8 + .2*Math.tanh((a - .8)/.2)); } return c; }
+/* Pompage (sidechain) : à chaque grosse caisse, tout sauf la batterie baisse puis remonte en un temps */
+function duckAt(t){
+  if (!duck) return;
+  var g = duck.gain, beat = cycleDur()/4;
+  g.cancelScheduledValues(t); g.setValueAtTime(1, t); g.linearRampToValueAtTime(.32, t + .012); g.setTargetAtTime(1, t + .03, beat*.17);
+}
+/* Voyelles : fréquences, niveaux et largeurs des 3 premiers formants. Sert à la voix, au chœur et à l'effet Voyelle (.vowel). */
+var VOWELS = {
+  a: [[800, 1, 6], [1150, .5, 8], [2900, .25, 10]],
+  e: [[400, 1, 6], [1700, .45, 8], [2600, .25, 10]],
+  i: [[300, 1, 6], [2200, .35, 9], [3000, .25, 10]],
+  o: [[450, 1, 6], [800, .45, 8], [2830, .15, 10]],
+  u: [[330, 1, 6], [700, .3, 8], [2500, .1, 10]]
+};
+function formants(vw, makeup){
+  var inp = ctx.createGain(), sum = ctx.createGain(); sum.gain.value = makeup || 2.2;
+  (VOWELS[vw] || VOWELS.a).forEach(function(fm){
+    var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fm[0]; bp.Q.value = fm[2];
+    var g = ctx.createGain(); g.gain.value = fm[1]; inp.connect(bp); bp.connect(g); g.connect(sum);
+  });
+  return {inp:inp, out:sum};
 }
 function fxOf(b){ var o = {}; (b.fx || []).forEach(function(f){ if (f.type!=='raw') o[f.type] = f; }); return o; }
 function hash1(n){ var x = Math.sin(n*127.1 + 311.7)*43758.5453; return x - Math.floor(x); }
@@ -2064,14 +2234,20 @@ function blockOut(b, pos, panOver){
     rs: F.roomsize ? q(val(F.roomsize, pos), .5) : 0,
     dl: F.delay ? q(val(F.delay, pos), .02) : 0,
     dt: F.delaytime ? q(val(F.delaytime, pos), .005) : F.delay ? q(cycleDur()*3/16, .005) : null,
-    df: F.delayfeedback ? q(val(F.delayfeedback, pos), .02) : null
+    df: F.delayfeedback ? q(val(F.delayfeedback, pos), .02) : null,
+    /* passe-haut automatique sous 150 Hz pour les mélodies hors du grave : la basse et le kick restent nets */
+    ah: b.type==='n' && !F.hpf && rootOctave(b) >= 3 ? 1 : 0,
+    vw: F.vowel && !singsItself(b) ? String(F.vowel.v) : null
   };
   var cache = ctx._outs || (ctx._outs = {}), key = b.id + JSON.stringify(K);
   var entry = cache[key] || (cache[key] = buildChain(b, K));
   var inp = ctx.createGain(); inp.gain.value = (g!=null ? g : 1) * (vel!=null ? vel : 1);
+  if (b.type==='s') inp.gain.value *= .92 + Math.random()*.16;   /* chaque coup un peu différent : moins robotique */
   inp.connect(entry);
   return inp;
 }
+function rootOctave(b){ var m = /(\d)$/.exec(b.root || ''); return m ? +m[1] : 4; }
+function singsItself(b){ var T = timbreOf(b.synth); return T.voice==='choir' || T.voice==='vox'; }
 function buildChain(b, K){
   var first = ctx.createGain(), last = first;
   function chain(n){ last.connect(n); last = n; }
@@ -2079,8 +2255,10 @@ function buildChain(b, K){
   if (K.cr != null){ var wc = ctx.createWaveShaper(); wc.curve = crushCurve(K.cr); chain(wc); }
   if (K.hp != null) chain(flt('highpass', K.hp, .7));
   if (K.lp != null) chain(flt('lowpass', K.lp, K.lq != null ? K.lq : .9));
+  if (K.ah) chain(flt('highpass', 150, .7));
+  if (K.vw){ var fm = formants(K.vw); last.connect(fm.inp); last = fm.out; }
   if (K.pan != null && ctx.createStereoPanner){ var p = ctx.createStereoPanner(); p.pan.value = K.pan; chain(p); }
-  last.connect(master);
+  last.connect(b.type==='s' ? master : duck);
   if (K.rm > 0){ var rs = ctx.createGain(); rs.gain.value = K.rm*1.1*(K.rs ? 1 + Math.min(10, K.rs)/12 : 1); last.connect(rs); rs.connect(revIn); }
   if (K.dl > 0){
     var ds = ctx.createGain(); ds.gain.value = K.dl*.8; last.connect(ds);
@@ -2094,27 +2272,40 @@ function noise(t, dur){ var s = ctx.createBufferSource(); s.buffer = noiseBuf; s
 function eg(t, peak, a, d){ var g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t+a); g.gain.exponentialRampToValueAtTime(.0001, t+a+d); return g; }
 function flt(type, f, q){ var x = ctx.createBiquadFilter(); x.type = type; x.frequency.value = f; if (q!=null) x.Q.value = q; return x; }
 function osc(type, t, dur){ var o = ctx.createOscillator(); o.type = type; o.start(t); o.stop(t+dur); return freeOnEnd(o); }
+/* Un son de l'utilisateur : joué en entier (12 s au plus), avec de très courts fondus pour éviter les clics */
+function playUser(name, t, out){
+  var buf = USER_BUF[name]; if (!buf) return;
+  var dur = Math.min(buf.duration, 12);
+  var s = ctx.createBufferSource(); s.buffer = buf;
+  var g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(1, t + .004);
+  g.gain.setValueAtTime(1, t + Math.max(.005, dur - .012)); g.gain.linearRampToValueAtTime(.0001, t + dur);
+  s.connect(g).connect(out); s.start(t); s.stop(t + dur + .01); freeOnEnd(s);
+}
+/* Batterie. Le kit (effet « Kit de batterie », .bank) change le caractère : 808 = kick long et rond, sinon un kick court et sec type 909.
+   Charley : 6 oscillateurs carrés désaccordés, la vraie recette de la 808 (plus métallique et réaliste que du bruit filtré). */
+var HAT_FREQS = [205.3, 304.4, 369.6, 522.7, 540, 800];
+function metal(t, dur){ var sum = ctx.createGain(); sum.gain.value = .18; HAT_FREQS.forEach(function(f){ var o = osc('square', t, dur); o.frequency.value = f*1.6; o.connect(sum); }); return sum; }
+function driven(drive){ var w = ctx.createWaveShaper(); w.curve = tanhCurve(drive); return w; }
 var DRUM = {
-  bd: function(t, out){
-    var o = osc('sine', t, .6); o.frequency.setValueAtTime(155, t); o.frequency.exponentialRampToValueAtTime(42, t+.13);
-    o.connect(eg(t, 1, .003, .45)).connect(out);
-    var c = osc('triangle', t, .03); c.frequency.value = 900; c.connect(eg(t, .25, .001, .02)).connect(out);
+  bd: function(t, out, kit){
+    var long = /808/.test(kit || '');
+    var o = osc('sine', t, long ? 1.2 : .7);
+    o.frequency.setValueAtTime(long ? 120 : 185, t); o.frequency.exponentialRampToValueAtTime(long ? 46 : 50, t + (long ? .09 : .07));
+    o.connect(eg(t, 1.05, .002, long ? .95 : .42)).connect(driven(long ? 1.6 : 2.4)).connect(out);
+    noise(t, .012).connect(flt('highpass', 2600)).connect(eg(t, .35, .0005, .006)).connect(out);   /* le clic d'attaque */
   },
   sd: function(t, out){
-    noise(t, .3).connect(flt('bandpass', 1900, .7)).connect(eg(t, .6, .001, .2)).connect(out);
-    var o = osc('triangle', t, .2); o.frequency.setValueAtTime(200, t); o.frequency.exponentialRampToValueAtTime(140, t+.1);
-    o.connect(eg(t, .4, .001, .1)).connect(out);
+    [185, 330].forEach(function(f, k){ var o = osc('triangle', t, .2); o.frequency.setValueAtTime(f*1.15, t); o.frequency.exponentialRampToValueAtTime(f, t+.03); o.connect(eg(t, k ? .25 : .4, .001, .09)).connect(out); });
+    noise(t, .3).connect(flt('highpass', 1200)).connect(flt('bandpass', 3200, .6)).connect(eg(t, .55, .001, .17)).connect(out);
   },
   cp: function(t, out){
     var g = ctx.createGain(); g.gain.setValueAtTime(.0001, t);
-    [0, .011, .022].forEach(function(o){
-      g.gain.setValueAtTime(.0001, t+o); g.gain.exponentialRampToValueAtTime(.75, t+o+.002); g.gain.exponentialRampToValueAtTime(.08, t+o+.01);
-    });
-    g.gain.setValueAtTime(.0001, t+.03); g.gain.exponentialRampToValueAtTime(.7, t+.032); g.gain.exponentialRampToValueAtTime(.0001, t+.24);
-    noise(t, .4).connect(flt('bandpass', 1250, 1.4)).connect(g).connect(out);
+    [0, .008, .016, .025].forEach(function(o, k){ g.gain.setValueAtTime(.0001, t+o); g.gain.exponentialRampToValueAtTime(k===3 ? .8 : .6, t+o+.0015); g.gain.exponentialRampToValueAtTime(.06, t+o+.007); });
+    g.gain.setValueAtTime(.0001, t+.033); g.gain.exponentialRampToValueAtTime(.75, t+.035); g.gain.exponentialRampToValueAtTime(.0001, t+.3);
+    noise(t, .4).connect(flt('highpass', 800)).connect(flt('bandpass', 1500, 1.1)).connect(g).connect(out);
   },
-  hh: function(t, out){ noise(t, .08).connect(flt('highpass', 7600)).connect(eg(t, .32, .001, .05)).connect(out); },
-  oh: function(t, out){ noise(t, .5).connect(flt('highpass', 6800)).connect(eg(t, .28, .002, .34)).connect(out); },
+  hh: function(t, out, kit){ metal(t, .12).connect(flt('bandpass', 10000, .9)).connect(flt('highpass', 7000)).connect(eg(t, /808/.test(kit || '') ? .42 : .5, .0008, .045)).connect(out); },
+  oh: function(t, out){ metal(t, .6).connect(flt('bandpass', 10000, .9)).connect(flt('highpass', 6500)).connect(eg(t, .38, .001, .32)).connect(out); },
   rim: function(t, out){
     var o = osc('triangle', t, .06); o.frequency.value = 1650; o.connect(eg(t, .45, .001, .035)).connect(out);
     noise(t, .04).connect(flt('bandpass', 3000, 2)).connect(eg(t, .25, .001, .025)).connect(out);
@@ -2294,14 +2485,30 @@ var VOICE = {
     var br = ctx.createGain(); br.gain.value = .03; loopNoise(t, life).connect(flt('bandpass', 2600, 1)).connect(br).connect(lp);
     return lp;
   },
+  /* Chœur : trois voix désaccordées étalées en stéréo, un vibrato qui arrive doucement, un peu de souffle, puis les formants de la voyelle */
   choir: function(f, t, life, T){
     var mix = ctx.createGain(), oscs = [];
-    [-9, 0, 9].forEach(function(dc){ var o = osc('sawtooth', t, life); o.frequency.value = f; o.detune.value = dc; o.connect(mix); oscs.push(o); });
-    vibrato(oscs, t, life, 16, 5, .2);
-    var sum = ctx.createGain(); sum.gain.value = 1.8;
-    [[800, 6, 1], [1150, 8, .55], [2900, 10, .25]].forEach(function(fm){
-      var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.frequency.value = fm[0]; bp.Q.value = fm[1];
-      var g = ctx.createGain(); g.gain.value = fm[2]; mix.connect(bp).connect(g).connect(sum);
+    [[-9, -.5], [0, 0], [9, .5]].forEach(function(v){
+      var o = osc('sawtooth', t, life); o.frequency.value = f; o.detune.value = v[0] + (Math.random() - .5)*4; oscs.push(o);
+      if (ctx.createStereoPanner){ var pn = ctx.createStereoPanner(); pn.pan.value = v[1]; o.connect(pn).connect(mix); } else o.connect(mix);
+    });
+    vibrato(oscs, t, life, 16, 5, .25);
+    var br = ctx.createGain(); br.gain.value = .05; loopNoise(t, life).connect(flt('bandpass', 1600, .8)).connect(br).connect(mix);
+    var fm = formants(T.vowel || 'a', 1.8); mix.connect(fm.inp);
+    return fm.out;
+  },
+  /* Voix lead : une chanteuse qui attaque chaque note par un « l » (formants qui glissent vers la voyelle), vibrato tardif et souffle */
+  vox: function(f, t, life, T){
+    var o = osc('sawtooth', t, life); o.frequency.value = f;
+    var o2 = osc('square', t, life); o2.frequency.value = f; o2.detune.value = 4; var g2 = ctx.createGain(); g2.gain.value = .25; o2.connect(g2);
+    vibrato([o, o2], t, life, 22, 5.6, .35);
+    var src = ctx.createGain(); o.connect(src); g2.connect(src);
+    var br = ctx.createGain(); br.gain.value = .07; loopNoise(t, life).connect(flt('bandpass', 2400, .9)).connect(br).connect(src);
+    var sum = ctx.createGain(); sum.gain.value = 2.4;
+    (VOWELS[T.vowel || 'a'] || VOWELS.a).forEach(function(fm, k){
+      var bp = ctx.createBiquadFilter(); bp.type = 'bandpass'; bp.Q.value = fm[2];
+      bp.frequency.setValueAtTime(k ? fm[0]*.8 : 280, t); bp.frequency.exponentialRampToValueAtTime(fm[0], t + .06);
+      var g = ctx.createGain(); g.gain.value = fm[1]; src.connect(bp); bp.connect(g); g.connect(sum);
     });
     return sum;
   },
@@ -2314,6 +2521,7 @@ var VOICE = {
 };
 function synth(b, freq, t, dur, out, pos){
   var T = timbreOf(b.synth), F = fxOf(b), lvl = T.lvl;
+  if (F.vowel && (T.voice==='choir' || T.voice==='vox')) T.vowel = String(F.vowel.v);   /* la voix chante la voyelle choisie */
   var A = F.attack ? Math.max(.002, val(F.attack, pos)) : T.A;
   var D = F.decay ? Math.max(.005, val(F.decay, pos)) : T.Df ? T.Df(freq) : T.D != null ? T.D : Math.min(.12, dur*.6);
   var S = F.sustain ? Math.max(0, Math.min(1, val(F.sustain, pos))) : T.S;
@@ -2333,7 +2541,14 @@ function synth(b, freq, t, dur, out, pos){
     /* basse au sinus (808) : la note « tombe » d'un cheveu au début, comme une vraie 808 */
     if (T.osc === 'sine' && freq < 130){ o.frequency.setValueAtTime(freq*1.5, t); o.frequency.exponentialRampToValueAtTime(freq, t + .045); }
     src = o;
-    if (T.lp){ var f2 = flt('lowpass', T.lp, .7); o.connect(f2); src = f2; }
+    /* Unisson : deux voix désaccordées de part et d'autre, étalées en stéréo (le carré garde son côté 8-bit) */
+    if (T.osc === 'sawtooth' && ctx.createStereoPanner){
+      var uni = ctx.createGain(); uni.gain.value = .6; o.connect(uni);
+      [-1, 1].forEach(function(sd){ var u = osc('sawtooth', t, life); u.frequency.value = freq; u.detune.value = sd*9 + (Math.random() - .5)*3; var pn = ctx.createStereoPanner(); pn.pan.value = sd*.7; var ug = ctx.createGain(); ug.gain.value = .45; u.connect(ug).connect(pn).connect(uni); });
+      src = uni;
+    }
+    /* Enveloppe de filtre : chaque note démarre brillante puis s'assombrit */
+    if (T.lp){ var f2 = flt('lowpass', T.lp, .9); f2.frequency.setValueAtTime(Math.min(16000, T.lp*2.6), t); f2.frequency.exponentialRampToValueAtTime(T.lp, t + Math.min(.3, Math.max(.06, dur*.8))); src.connect(f2); src = f2; }
   }
   src.connect(g);
   var subLvl = T.sub || (freq < 130 && !T.voice ? .9 : 0);
@@ -2388,7 +2603,11 @@ function scheduleRange(a, z){
             if (pos < b0 || pos >= b1) continue;
             if (F.degradeBy && Math.random() < val(F.degradeBy, pos)) continue;
             var t = startT + (pos/sp + late)*cd, name = String(v).split(':')[0];
-            if (b.type==='s'){ if (DRUM[name]) DRUM[name](t, blockOut(b, pos, pass.pan)); }
+            if (b.type==='s'){
+              if (DRUM[name]) DRUM[name](t, blockOut(b, pos, pass.pan), F.bank ? String(F.bank.v) : '');
+              else if (USER_BUF[name]) playUser(name, t, blockOut(b, pos, pass.pan));
+              if ((name==='bd' || name==='lt') && (pass.pan === null || pass.pan < 0)) duckAt(t);
+            }
             else { var vo = blockOut(b, pos, pass.pan), du = cd/(N*sp*ply)*(ply > 1 ? 1 : elen)*.92; String(v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, du, vo, pos); }); }
             if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type, kick: b.type==='s' && (name==='bd' || name==='lt')});
           }
@@ -2443,7 +2662,7 @@ function preview(b, v){
   if (!b || b.type==='code') b = /^-?\d+(,-?\d+)*$/.test(v) ? recNoteTemplate() : {type:'s', fx:[]};
   if (v==='~') return;
   v = String(v).split(':')[0];
-  if (b.type==='s'){ if (DRUM[v]) DRUM[v](t, blockOut(b)); }
+  if (b.type==='s'){ if (DRUM[v]) DRUM[v](t, blockOut(b), fxOf(b).bank ? String(fxOf(b).bank.v) : ''); else if (USER_BUF[v]) playUser(v, t, blockOut(b)); }
   else String(v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, .3, blockOut(b), 0); });
 }
 
@@ -2634,7 +2853,7 @@ function openCellPicker(cell){
   var b = findBlock(d.s, d.b); if (!b) return;
   var isN = b.type==='n', arr = arrOf(d), i = +d.i, cur = arr[i];
   if (cur==='_' && i > 0){ var hc = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+noteHead(arr, i)+'"]'); if (hc){ openCellPicker(hc); return; } }
-  var opts = isN ? degList(b) : SOUNDS.map(function(s){ return s.v; });
+  var opts = isN ? degList(b) : SOUNDS.map(function(s){ return s.v; }).concat(USER_SOUNDS.map(function(u){ return u.name; }));
   var canLen = isN && cur!=='~' && cur!=='_', hl = canLen ? holdLen(arr, i) : 0;
   var parts = canLen ? String(cur).split(',') : [], isChord = parts.length > 1;
   var chordMode = isN && (cellChord && cellChord.key===ckey ? cellChord.on : (isChord || palChord));
@@ -2649,7 +2868,7 @@ function openCellPicker(cell){
     h += '<button type="button" class="pick pick--n pick--chord'+(v===cur?' on':'')+'" data-pickchord="'+v+'" aria-label="Accord '+esc(info.name || 'sur le degré '+o)+' : '+esc(info.notes)+'"><span>'+esc(info.name || o)+'</span><small>'+esc(info.notes)+'</small></button>';
   });
   else opts.forEach(function(o){
-    h += '<button type="button" class="pick '+(isN?'pick--n':'pick--s')+((isChord ? parts.indexOf(o) > -1 : o===cur)?' on':'')+'" data-pick="'+o+'"'+(isN?'':' data-snd="'+o+'"')+'><span>'+(isN?o:SOUND_FR[o])+'</span>'+(isN?'':'<small>'+SOUND_D[o]+'</small>')+'</button>';
+    h += '<button type="button" class="pick '+(isN?'pick--n':'pick--s')+((isChord ? parts.indexOf(o) > -1 : o===cur)?' on':'')+'" data-pick="'+o+'"'+(isN?'':' data-snd="'+sndKey(o)+'"')+'><span>'+(isN?o:esc(sndName(o)))+'</span>'+(isN?'':'<small>'+esc(sndDesc(o))+'</small>')+'</button>';
   });
   h += '<button type="button" class="pick pick--rest'+(cur==='~'?' on':'')+'" data-pick="~"><span>·</span><small>Silence</small>'+'</button></div>'+
     '<button type="button" class="pop-del" data-pick="__del"'+(arr.length<=hl+1?' disabled':'')+'>'+(hl ? 'Supprimer cette note' : 'Supprimer ce pas')+'</button>';
@@ -3754,14 +3973,14 @@ function renderWav(){
     if (c >= cycles) return Promise.resolve();
     var n = Math.min(CH, cycles - c), segDur = n*cd, len = Math.ceil(sr*(segDur + TAIL));
     var off = new AC(2, len, sr);
-    var saved = {ctx:ctx, master:master, analyser:analyser, revIn:revIn, dlyIn:dlyIn, dly:dly, noiseBuf:noiseBuf, blockDelays:blockDelays, startT:startT, vq:vq, songSolo:songSolo, solo:solo, recOn:rec.on};
+    var saved = {ctx:ctx, master:master, duck:duck, analyser:analyser, revIn:revIn, dlyIn:dlyIn, dly:dly, noiseBuf:noiseBuf, blockDelays:blockDelays, startT:startT, vq:vq, songSolo:songSolo, solo:solo, recOn:rec.on};
     try {
       ctx = null; initAudio(off);
       blockDelays = {}; songSolo = null; solo = null; rec.on = false;
       startT = -c*cd;
       scheduleRange(0, segDur - 1e-6);
     } finally {
-      ctx = saved.ctx; master = saved.master; analyser = saved.analyser; revIn = saved.revIn; dlyIn = saved.dlyIn; dly = saved.dly; noiseBuf = saved.noiseBuf;
+      ctx = saved.ctx; master = saved.master; duck = saved.duck; analyser = saved.analyser; revIn = saved.revIn; dlyIn = saved.dlyIn; dly = saved.dly; noiseBuf = saved.noiseBuf;
       blockDelays = saved.blockDelays; startT = saved.startT; vq = saved.vq; songSolo = saved.songSolo; solo = saved.solo; rec.on = saved.recOn;
     }
     var at = Math.round(sr*(lead + c*cd));
@@ -3988,6 +4207,24 @@ palette.addEventListener('click', function(){ requestAnimationFrame(syncPalH); }
 
 /* ---------- Démos : une est tirée au hasard à chaque ouverture, et sert de musique de fond ---------- */
 var DEMOS = [
+  {
+    id: "djdave",
+    name: "DJ_Dave",
+    bpm: 150,
+    /* D'après un set de DJ_Dave (808 week) : rythme « HR main », charley en jux, arpège qui change d'accord à chaque mesure.
+       Sons synthétisés (pas de dirt-samples) ; en plus : la Voyelle sur l'arpège, un chœur « ooh » et une basse 808 calée sur le kick. */
+    code: `setcps(150/60/4)
+stack(
+  s("bd ~ ~ ~ ~ ~ ~ bd ~ ~ bd ~ ~ ~ bd ~").bank("RolandTR808").shape(.3),
+  s("~ cp ~ cp").bank("RolandTR808").lpf(3000).gain(.35),
+  s("hh hh hh ~ ~ hh hh hh hh hh hh hh hh hh hh ~").bank("RolandTR808").room(sine.range(.1, .4)).gain(.4).jux(rev),
+  note("<[f3 c4 ~ f3 c4 ~ f3 c4 ~ f3 c4 ~ f3 c4 ~ f3] [a3 e4 ~ a3 e4 ~ a3 e4 ~ a3 e4 ~ a3 e4 ~ a3] [d3 a3 ~ d3 a3 ~ d3 a3 ~ d3 a3 ~ d3 a3 ~ d3] [e3 b3 ~ e3 b3 ~ e3 b3 ~ e3 b3 ~ e3 b3 ~ e3]>")
+    .s("square").vowel("o").decay(.4).sustain(0).lpf(sine.range(400, 5000).slow(8)).room(.5).gain(.3),
+  note("<[f3,a3,c4] [a3,c4,e4] [d3,f3,a3] [e3,g3,b3]>").s("gm_voice_oohs").room(.6).gain(.3),
+  note("<[f1 ~ ~ ~ ~ ~ ~ f1 ~ ~ f1 ~ ~ ~ f1 ~] [a1 ~ ~ ~ ~ ~ ~ a1 ~ ~ a1 ~ ~ ~ a1 ~] [d1 ~ ~ ~ ~ ~ ~ d1 ~ ~ d1 ~ ~ ~ d1 ~] [e1 ~ ~ ~ ~ ~ ~ e1 ~ ~ e1 ~ ~ ~ e1 ~]>")
+    .s("sine").decay(.9).sustain(0).shape(.35).gain(.7)
+)`,
+  },
   {
     id: "lofi",
     name: "Lo-fi Chill",
@@ -4245,6 +4482,9 @@ window.BTB = {
   showPage: function(k){ var b = document.querySelector('#nav [data-nav="'+k+'"]'); if (b) b.click(); },
   toast: function(m, ms){ toast(m, ms); }
 };
+$('#openStrudel').addEventListener('click', function(){
+  if (usedUserSounds().length) toast('Tes sons perso restent sur cet appareil : strudel.cc ne pourra pas les jouer.');
+});
 $('#libSave').addEventListener('click', function(){
   if (P.libId){ toast('Ce projet s’enregistre automatiquement dans la Library.'); return; }
   document.dispatchEvent(new CustomEvent('btb:library-save'));
@@ -4252,6 +4492,7 @@ $('#libSave').addEventListener('click', function(){
 
 /* ---------- Boot ---------- */
 buildPalette();
+loadUserSounds();   /* #55 : les sons importés, chargés depuis l'appareil */
 setCode(isWide());
 loadDemo();
 updateDelay();
