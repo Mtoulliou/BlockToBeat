@@ -176,7 +176,7 @@ body.is-playing .edge-light{opacity:1}
 
 /* Hit areas: only the coloured shapes of a block react, never the empty space around them */
 .stack,.row,.nblk,.n-mid,.mouth,.fxs{pointer-events:none}
-.b-title,.blk,.fx,.spine,.b-line,.mouth-drop,.n-foot,.b-empty,.roll{pointer-events:auto}
+.b-title,.blk,.fx,.spine,.mouth-drop,.n-foot,.b-empty,.roll{pointer-events:auto}
 .cell{-webkit-touch-callout:none;user-select:none;-webkit-user-select:none}
 .cell.is-picked{box-shadow:0 0 0 3px var(--title),0 0 14px var(--title)!important;opacity:1}
 .fx.fx-fold,.fx.fx-hide{background:#1C2B25!important;color:var(--fx);box-shadow:inset 0 0 0 1.5px rgba(92,214,163,.35)}
@@ -334,16 +334,10 @@ body.drag-mv .isl-trash{display:flex}
 .b-key{flex:none;min-width:30px;padding:0 4px;align-self:stretch;min-height:38px;border:0;border-radius:8px;background:transparent;color:inherit;font-family:var(--f-display,var(--f-mono));font-weight:800;font-size:16px;letter-spacing:-.01em;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .b-key:hover{background:rgba(0,0,0,.12)}
 .slot{display:flex;align-items:center;gap:4px;padding:4px;border-radius:11px;background:rgba(0,0,0,.28);box-shadow:inset 0 2px 5px rgba(0,0,0,.45)}
-.slot.drop-ok,.blk.drop-ok,.b-line.drop-ok,.b-title.drop-ok,.mouth-drop.drop-ok,.row.drop-ok,.nblk.drop-ok,.fx.drop-ok{outline:2px dashed var(--fg);outline-offset:3px}
+.slot.drop-ok,.blk.drop-ok,.b-title.drop-ok,.mouth-drop.drop-ok,.row.drop-ok,.nblk.drop-ok,.fx.drop-ok{outline:2px dashed var(--fg);outline-offset:3px}
 .cell{width:var(--cell);height:var(--cellh);border:0;border-radius:9px;font-family:var(--f-mono);font-weight:800;font-size:15px;padding:0;transition:box-shadow .08s}
 .b-s .cell{background:var(--sound-ink);color:var(--sound)}
-.b-line .cell{width:var(--ncell);background:var(--note-ink);color:var(--note-2)}
 .cell .chord{display:block;font-size:9px;line-height:1.05;letter-spacing:-.02em}
-.b-line .cell.held{border-top-right-radius:2px;border-bottom-right-radius:2px}
-.b-line .cell.hold{background:var(--note-ink);border-radius:2px;margin-left:-5px;width:calc(var(--ncell) + 5px);display:flex;align-items:center;padding:0 5px 0 0}
-.b-line .cell.hold:not(.held){border-top-right-radius:9px;border-bottom-right-radius:9px}
-.hold-bar{display:block;height:4px;flex:1;border-radius:2px;background:var(--note-2);opacity:.7}
-.b-line.stretching .cell{transition:none}
 .cell.rest{background:transparent!important;color:inherit!important;box-shadow:inset 0 0 0 1.5px currentColor;opacity:.55;font-size:17px}
 .cell.drop-ok{outline:2px solid var(--fg);outline-offset:1px}
 .b-s .cell{font-family:var(--f-body);font-size:12.5px;letter-spacing:-.01em}
@@ -376,8 +370,6 @@ body.drag-mv .isl-trash{display:flex}
 .n-mid{position:relative;display:flex;align-items:stretch}
 .spine{width:24px;flex:none;background:var(--note)}
 .mouth{display:flex;flex-direction:column;align-items:flex-start;padding:6px 0 6px 6px}
-.b-line{position:relative;display:flex;align-items:center;gap:6px;padding:5px 8px 5px 5px;border-radius:11px;background:var(--note-2);color:var(--note-ink)}
-.b-line.is-playing{box-shadow:0 0 0 2px var(--fg),0 0 16px rgba(255,241,232,.35)}
 .l-grip{flex:none;width:24px;align-self:stretch;border:0;border-radius:7px;background:transparent;color:inherit;font-family:var(--f-mono);font-weight:700;font-size:11.5px;opacity:.75;cursor:grab;touch-action:none;user-select:none;-webkit-user-select:none}
 .l-grip:hover{background:rgba(0,0,0,.1);opacity:1}
 .mouth-drop{margin-top:8px;height:36px;padding:0 14px;border-radius:10px;border:1.5px dashed var(--note);background:var(--bg);color:var(--note);font-size:12.5px;font-weight:700}
@@ -937,13 +929,12 @@ function locate(bid){
 }
 function findBlock(sid, bid){ var l = locate(bid); return l ? l.b : null; }
 function sLines(b){ return [b.steps].concat(b.alt || []); }
-function blockLines(b){ return b.type==='s' ? sLines(b) : (b.lines || []); }
+function blockLines(b){ return b.type==='s' ? sLines(b) : []; }
 /* remplace toutes les lignes d'un bloc (Son : la première est steps, les suivantes alt) */
 function setBlockLines(b, L){
-  if (b.type!=='s'){ b.lines = L; return; }
   b.steps = L[0]; if (L.length > 1) b.alt = L.slice(1); else delete b.alt;
 }
-function arrOf(d){ var b = findBlock(d.s, d.b); if (!b) return null; return b.type==='s' ? sLines(b)[+d.l || 0] : b.lines[+d.l]; }
+function arrOf(d){ var b = findBlock(d.s, d.b); if (!b || b.type!=='s') return null; return sLines(b)[+d.l || 0]; }
 function newBlock(t){
   if (t==='s') return {id:uid(), type:'s', muted:false, steps:['bd','~','~','~'], fx:[]};
   if (t==='code') return {id:uid(), type:'code', muted:false, prefix:true, fx:[], text:'note("c3 [e3 g3]*2 <a3 b3>").s("piano")'};
@@ -952,7 +943,6 @@ function newBlock(t){
   var I = recInst();
   return toRoll({id:uid(), type:'n', muted:false, root:I.root, scale:'minor', synth:I.synth, fx:JSON.parse(JSON.stringify(I.fx)), lines:[['0','~','2','~']]});
 }
-function newLine(){ return ['0','~','~','~']; }
 function newStack(pt, blocks){ return {id:uid(), title:'Nouveau groupe', x:pt.x, y:pt.y, muted:false, blocks:blocks}; }
 function takeBlock(bid){ var l = locate(bid); return l ? l.s.blocks.splice(l.i,1)[0] : null; }
 
@@ -1078,22 +1068,11 @@ function dragSrcOf(t){
   if (btn && btn !== src && !btn.hasAttribute('data-src') && !btn.hasAttribute('data-pal')) return null;
   return src;
 }
-var stretch = null;
 viewport.addEventListener('pointerdown', function(e){
   if (dragSrcOf(e.target) || e.target.closest('select,input,label')) return;
   if (e.pointerType==='mouse' && e.button!==0) return;
   var rl = !multi && pts.size===0 && e.target.closest && e.target.closest('.roll-note, .roll-lane, .roll-body');
   if (rl && startRoll(e, rl)) return;
-  var sc = !multi && pts.size===0 && e.target.closest && e.target.closest('.b-line .cell');
-  if (sc){
-    var sa = arrOf(sc.dataset), si = sa ? noteHead(sa, +sc.dataset.i) : 0, sv = sa && sa[si];
-    if (sv && sv!=='~' && sv!=='_'){
-      pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
-      stretch = {pid:e.pointerId, d:{s:sc.dataset.s, b:sc.dataset.b, l:sc.dataset.l}, i:si, v:sv, x0:e.clientX, y0:e.clientY, active:false};
-      pan = null;
-      return;
-    }
-  }
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pts.size===1){ pan = {x0:e.clientX, y0:e.clientY, tx0:V.tx, ty0:V.ty, moved:false}; }
   else if (pts.size===2){ startPinch(); }
@@ -1196,30 +1175,8 @@ function openNotePicker(sid, bid, ni){
     closePop();
   };
 }
-function stretchMove(e){
-  var dx = e.clientX - stretch.x0, dy = e.clientY - stretch.y0;
-  if (!stretch.active){
-    if (Math.abs(dx) > 10 && Math.abs(dx) > Math.abs(dy)*1.3){
-      stretch.active = true;
-      if (lp){ clearTimeout(lp.t); lp = null; }
-      closePop(); suppressClick = true;
-      hist.push(JSON.stringify(P)); if (hist.length>120) hist.shift(); fut = [];
-      preview(findBlock(stretch.d.s, stretch.d.b), stretch.v);
-    } else if (Math.hypot(dx, dy) > 8){
-      /* pas un étirement : on déplace le plan comme d'habitude */
-      pan = {x0:stretch.x0, y0:stretch.y0, tx0:V.tx, ty0:V.ty, moved:false}; stretch = null; return;
-    } else return;
-  }
-  var a = arrOf(stretch.d); if (!a) return;
-  var cells = canvas.querySelectorAll('.cell[data-b="'+stretch.d.b+'"][data-l="'+stretch.d.l+'"]');
-  var first = cells[stretch.i] && cells[stretch.i].getBoundingClientRect(); if (!first) return;
-  var w = first.width + 4*V.z, target = Math.max(0, Math.floor((e.clientX - first.left)/w));
-  var n = Math.min(15 - stretch.i, target);
-  if (n !== holdLen(a, stretch.i)){ setHold(a, stretch.i, n); renderCanvas(); }
-}
 window.addEventListener('pointermove', function(e){
   if (rollG && e.pointerId===rollG.pid){ rollMove(e); return; }
-  if (stretch && e.pointerId===stretch.pid){ stretchMove(e); return; }
   if (!pts.has(e.pointerId)) return;
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
   if (pinch && pts.size>=2){
@@ -1238,10 +1195,6 @@ window.addEventListener('pointermove', function(e){
 });
 function endPointer(e){
   if (rollG && e.pointerId===rollG.pid) rollEnd(e);
-  if (stretch && e.pointerId===stretch.pid){
-    var was = stretch.active; stretch = null;
-    if (was){ persist(); renderAll(); setTimeout(function(){ suppressClick = false; }, 0); }
-  }
   if (!pts.has(e.pointerId)) return;
   pts.delete(e.pointerId);
   if (pan && pan.moved) suppressClick = true;
@@ -1277,17 +1230,11 @@ function selIs(k, s, b, l){
   return sel.b===b && sel.l===l;
 }
 function cellHTML(st, b, l, i, t){
-  var rest = t==='~', picked = multi && multi.has(b.id+':'+l+':'+i), isS = b.type==='s';
-  var chord = !isS && !rest && String(t).indexOf(',') > -1;
-  var hold = t==='_', arr0 = isS ? null : b.lines[l], held = !isS && arr0 && arr0[i+1]==='_' && t!=='~' ;
-  if (hold) return '<button type="button" class="cell hold'+(picked?' is-picked':'')+(arr0[i+1]==='_'?' held':'')+'" data-drop="cell" data-act="cell"'+
-    attrs({s:st.id, b:b.id, l:l, i:i, key:b.id+':'+l+':'+i})+' aria-label="Pas '+(i+1)+' : la note continue"><span class="hold-bar"></span></button>';
-  var shown = rest ? '·' : isS ? sndName(t) : t;
-  var aria = rest ? 'silence' : isS ? sndName(t)+', '+sndDesc(t) : 'degré '+t+(/^-?\d+$/.test(t) ? ', '+degName(b, +t) : '');
-  return '<button type="button" class="cell'+(rest?' rest':'')+(held?' held':'')+(picked?' is-picked':'')+'" data-drop="cell" data-act="cell"'+
-    (isS && !rest ? ' data-snd="'+sndKey(t)+'"' : '')+
+  var rest = t==='~', picked = multi && multi.has(b.id+':'+l+':'+i);
+  return '<button type="button" class="cell'+(rest?' rest':'')+(picked?' is-picked':'')+'" data-drop="cell" data-act="cell"'+
+    (!rest ? ' data-snd="'+sndKey(t)+'"' : '')+
     attrs({s:st.id, b:b.id, l:l, i:i, key:b.id+':'+l+':'+i})+
-    ' aria-label="Pas '+(i+1)+' : '+esc(chord ? 'accord '+t.split(',').join(' ') : aria)+'">'+(chord ? '<span class="chord">'+t.split(',').map(esc).reverse().join('<br>')+'</span>' : esc(shown))+'</button>';
+    ' aria-label="Pas '+(i+1)+' : '+esc(rest ? 'silence' : sndName(t)+', '+sndDesc(t))+'">'+esc(rest ? '·' : sndName(t))+'</button>';
 }
 function slotHTML(st, b, l, arr){
   var h = '<div class="slot" data-drop="slot"'+attrs({s:st.id, b:b.id, l:l})+'>';
@@ -1367,13 +1314,7 @@ function nHTML(st, b, z){
       '</div>'+ fxHTML(st, b)+
     '</div>'+
     '<div class="n-mid" style="z-index:2"><div class="spine"></div><div class="mouth" data-drop="mouth"'+attrs({s:st.id, b:b.id})+'>';
-  if (isRoll(b)) h += rollHTML(st, b);
-  else b.lines.forEach(function(line, li){
-    h += '<div class="b-line'+(selIs('line',st.id,b.id,li)?' is-sel':'')+'" data-drop="line" data-src="line" style="z-index:'+(40-li)+'"'+attrs({s:st.id, b:b.id, l:li, lkey:b.id+':'+li})+'>'+
-      '<button type="button" class="l-grip" data-src="line"'+attrs({s:st.id, b:b.id, l:li})+' aria-label="Ligne '+(li+1)+' : sélectionner ou glisser">'+(li+1)+'</button>'+
-      slotHTML(st, b, li, line)+
-      '<span class="nub"></span></div>';
-  });
+  h += rollHTML(st, toRoll(b));
   h += '</div></div><div class="n-foot" style="z-index:1"><span class="nub"></span></div></div>';
   return h;
 }
@@ -1511,12 +1452,11 @@ function renderCanvas(){
   indexCanvas();
 }
 /* Index des cases et lignes affichées, pour que la tête de lecture ne cherche pas dans tout le plan à chaque image */
-var cellIdx = {}, lineIdx = {}, blockIdx = {}, nowOn = {}, linesOn = {}, rollIdx = {};
+var cellIdx = {}, blockIdx = {}, nowOn = {}, rollIdx = {};
 function indexCanvas(){
-  cellIdx = {}; lineIdx = {}; blockIdx = {}; nowOn = {}; linesOn = {}; rollIdx = {};
+  cellIdx = {}; blockIdx = {}; nowOn = {}; rollIdx = {};
   canvas.querySelectorAll('.roll').forEach(function(el){ rollIdx[el.dataset.b] = {heads:Array.prototype.slice.call(el.querySelectorAll('.roll-head')), notes:Array.prototype.slice.call(el.querySelectorAll('.roll-note'))}; });
   canvas.querySelectorAll('.cell[data-key]').forEach(function(el){ cellIdx[el.dataset.key] = el; });
-  canvas.querySelectorAll('.b-line').forEach(function(el){ lineIdx[el.dataset.lkey] = el; });
   canvas.querySelectorAll('.nblk[data-b], .row[data-b]').forEach(function(el){ if (!blockIdx[el.dataset.b]) blockIdx[el.dataset.b] = el; });
 }
 function validSel(){
@@ -1591,14 +1531,8 @@ function blockCode(b){
     if (b.alt && b.alt.length) return 's("<'+sLines(b).map(function(l){ return l.length===1 ? l[0] : '['+l.join(' ')+']'; }).join(' ')+'>")' + fxChain(b);
     return 's("'+b.steps.join(' ')+'")' + fxChain(b);
   }
-  if (isRoll(b)){
-    var rl = rollLen(b);
-    return 'n("'+rollMini(b.notes, rl)+'")'+(rl > 1 ? '.slow('+rl+')' : '')+'\n  .scale("'+b.root+':'+b.scale+'")' + (b.synth && b.synth!=='triangle' ? '.s("'+b.synth+'")' : '') + fxChain(b);
-  }
-  var lines = b.lines.filter(function(l){ return l.length; });
-  var tk = function(t){ return String(t).indexOf(',') > -1 ? '['+t+']' : t; };
-  var pat = lines.length===1 ? lines[0].map(tk).join(' ') : '<'+lines.map(function(l){ return l.length===1 ? tk(l[0]) : '['+l.map(tk).join(' ')+']'; }).join(' ')+'>';
-  return 'n("'+pat+'")\n  .scale("'+b.root+':'+b.scale+'")' + (b.synth && b.synth!=='triangle' ? '.s("'+b.synth+'")' : '') + fxChain(b);
+  var R = rollOf(b), rl = R.len;
+  return 'n("'+rollMini(R.notes, rl)+'")'+(rl > 1 ? '.slow('+rl+')' : '')+'\n  .scale("'+b.root+':'+b.scale+'")' + (b.synth && b.synth!=='triangle' ? '.s("'+b.synth+'")' : '') + fxChain(b);
 }
 var RESERVED = ' s n note sound stack cat seq fastcat slowcat arrange silence samples setcpm setcps setbpm hush sine cosine saw isaw tri square rand perlin irand run pure mini const let var new function return if else for while do in of this true false null undefined class import export await yield delete typeof void with switch case break continue default try catch finally throw ';
 function songVars(){
@@ -2208,7 +2142,7 @@ function parseStrudel(code){
 }
 function estHeight(st){
   var h = 60;
-  st.blocks.forEach(function(b){ h += b.type==='s' ? 56 : b.type==='code' ? 76 : 104 + (isRoll(b) ? rollLanes(b.notes).length*36 + 40 : b.lines.length*50); });
+  st.blocks.forEach(function(b){ h += b.type==='s' ? 56 : b.type==='code' ? 76 : 104 + rollOf(b).len*56; });
   return h + (st.blocks.length ? 0 : 50);
 }
 
@@ -2959,11 +2893,8 @@ function scheduleRange(a, z){
         if (!soloAllows(st, b)) continue;
         var song = songOn(), sa = song ? songAt(k/sp) : null, sk = sa && sa.map[st.id];
         if (song && !sk) continue;
-        var lk = b._rc0 != null ? k - b._rc0 : song ? k - Math.round(sk.start*sp) : k;
-        var LL = b.type==='s' ? sLines(b) : b.lines;
-        /* pendant la prise, chaque tour a sa ligne : un tour où l'on n'a encore rien joué reste muet
-           (sinon la ligne du tour d'avant se rejoue et on entend des notes qu'on ne joue pas) */
-        if (rec.on && b._rc0 != null && (lk < 0 || lk >= LL.length || lk >= REC_MAX_LINES)) continue;
+        var lk = song ? k - Math.round(sk.start*sp) : k;
+        var LL = sLines(b);   /* blocs Son : les blocs Mélo passent par scheduleRoll */
         var lidx = ((lk % LL.length) + LL.length) % LL.length, line = LL[lidx];
         if (!line || !line.length) continue;
         var N = line.length, ply = F.ply ? Math.max(1, Math.round(val(F.ply, k))) : 1;
@@ -2971,23 +2902,19 @@ function scheduleRange(a, z){
         for (var q0=0;q0<N;q0++){
           var vv = line[q0]; if (vv==='~' || vv==='_') continue;
           if (rec.on && rec.fresh[b.id+':'+lidx+':'+q0+':'+k]) continue;   /* déjà entendue en direct pendant la prise */
-          var hl = 0; if (b.type==='n') while (q0 + hl + 1 < N && line[q0 + hl + 1]==='_') hl++;
-          evs.push({i: rev ? N - 1 - (q0 + hl) : q0, len: hl + 1, v: vv});
+          evs.push({i: rev ? N - 1 - q0 : q0, v: vv});
         }
         for (var ei=0; ei<evs.length; ei++){
-          var i = evs[ei].i, v = evs[ei].v, elen = evs[ei].len;
+          var i = evs[ei].i, v = evs[ei].v;
           for (var r=0;r<ply;r++){
             var pos = k + (i + r/ply)/N;
             if (pos < b0 || pos >= b1) continue;
             if (F.degradeBy && Math.random() < val(F.degradeBy, pos)) continue;
             var t = startT + (pos/sp + late)*cd, name = String(v).split(':')[0];
-            if (b.type==='s'){
-              if (DRUM[name]) DRUM[name](t, blockOut(b, pos, pass.pan), F.bank ? String(F.bank.v) : '');
-              else if (USER_BUF[name]) playUser(name, t, blockOut(b, pos, pass.pan));
-              if ((name==='bd' || name==='lt') && (pass.pan === null || pass.pan < 0)) duckAt(t);
-            }
-            else { var vo = blockOut(b, pos, pass.pan), du = cd/(N*sp*ply)*(ply > 1 ? 1 : elen)*.92; String(v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, du, vo, pos); }); }
-            if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type, kick: b.type==='s' && (name==='bd' || name==='lt')});
+            if (DRUM[name]) DRUM[name](t, blockOut(b, pos, pass.pan), F.bank ? String(F.bank.v) : '');
+            else if (USER_BUF[name]) playUser(name, t, blockOut(b, pos, pass.pan));
+            if ((name==='bd' || name==='lt') && (pass.pan === null || pass.pan < 0)) duckAt(t);
+            if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type, kick: name==='bd' || name==='lt'});
           }
         }
       }
@@ -3019,7 +2946,7 @@ function stop(){
   songFrame(null);
   canvas.querySelectorAll('.is-now').forEach(function(el){ el.classList.remove('is-now'); });
   canvas.querySelectorAll('.is-playing').forEach(function(el){ el.classList.remove('is-playing'); });
-  nowOn = {}; linesOn = {};
+  nowOn = {};
   canvas.querySelectorAll('.roll-note.is-on').forEach(function(el){ el.classList.remove('is-on'); el._on = false; });
   var b = $('#play'); b.setAttribute('aria-pressed', 'false'); b.setAttribute('aria-label', 'Lecture');
   if (soundHint) audioLockCheck();
@@ -3185,7 +3112,7 @@ function frame(){
   var pos = (now - startT)/cycleDur();
   if (pos < 0) return;
   setFx('--edge-a', ((pos*90) % 360).toFixed(1) + 'deg');
-  var want = {}, wantLines = {}, rollPh = {}, sNow = songOn() ? songAt(pos) : null;
+  var want = {}, rollPh = {}, sNow = songOn() ? songAt(pos) : null;
   songFrame(sNow);
   P.stacks.forEach(function(st){
     if (st.muted) return;
@@ -3200,19 +3127,11 @@ function frame(){
         rollPh[b.id] = {ph:rph, b:b}; return;
       }
       if (b.type==='s'){ var SL = sLines(b), kk2 = sNow ? k - Math.round(sNow.map[st.id].start*speedOf(b)) : k, sli = ((kk2 % SL.length) + SL.length) % SL.length; if (SL[sli].length) want[b.id+':'+sli+':'+idx(SL[sli].length)] = 1; }
-      else if (b.lines && b.lines.length){
-        var kk = sNow ? k - Math.round(sNow.map[st.id].start*speedOf(b)) : k;
-        var li = ((kk % b.lines.length) + b.lines.length) % b.lines.length;
-        wantLines[b.id+':'+li] = 1;
-        want[b.id+':'+li+':'+idx(b.lines[li].length)] = 1;
-      }
     });
   });
   var key;
   for (key in nowOn) if (!want[key]){ if (cellIdx[key]) cellIdx[key].classList.remove('is-now'); delete nowOn[key]; }
   for (key in want) if (!nowOn[key]){ if (cellIdx[key]) cellIdx[key].classList.add('is-now'); nowOn[key] = 1; }
-  for (key in linesOn) if (!wantLines[key]){ if (lineIdx[key]) lineIdx[key].classList.remove('is-playing'); delete linesOn[key]; }
-  for (key in wantLines) if (!linesOn[key]){ if (lineIdx[key]) lineIdx[key].classList.add('is-playing'); linesOn[key] = 1; }
   for (key in rollIdx){
     var RI = rollIdx[key], RP = rollPh[key];
     RI.heads.forEach(function(hd, r){ var here = !!RP && Math.floor(RP.ph) === r; if (here) hd.style.left = ((RP.ph - r)*ROLL_CYCLE_PX)+'px'; if (hd._here !== here){ hd._here = here; hd.classList.toggle('is-here', here); } });
@@ -3238,62 +3157,20 @@ function closePop(){ pop.hidden = true; pop.onclick = null; pop.oninput = null; 
 /* Menu d'un pas Mélo : « Notes » ou « Accords », comme l'onglet Notes. Le choix reste le temps qu'on travaille sur ce pas. */
 var cellChord = null;
 function openCellPicker(cell){
-  var d = {s:cell.dataset.s, b:cell.dataset.b, l:cell.dataset.l, i:cell.dataset.i}, ckey = d.b+':'+d.l+':'+d.i;
-  var b = findBlock(d.s, d.b); if (!b) return;
-  var isN = b.type==='n', arr = arrOf(d), i = +d.i, cur = arr[i];
-  if (cur==='_' && i > 0){ var hc = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+noteHead(arr, i)+'"]'); if (hc){ openCellPicker(hc); return; } }
-  var opts = isN ? degList(b) : SOUNDS.map(function(s){ return s.v; }).concat(USER_SOUNDS.map(function(u){ return u.name; }));
-  var canLen = isN && cur!=='~' && cur!=='_', hl = canLen ? holdLen(arr, i) : 0;
-  var parts = canLen ? String(cur).split(',') : [], isChord = parts.length > 1;
-  var chordMode = isN && (cellChord && cellChord.key===ckey ? cellChord.on : (isChord || palChord));
-  var ci = isChord ? chordInfo(b, cur) : null;
-  var h = '<div class="pop-h"><strong>Pas '+(i+1)+'</strong><span>'+(isN ? 'ligne '+(+d.l+1)+' · '+(ci ? esc((ci.name ? ci.name+' · ' : '')+ci.notes) : 'degré') : 'son joué')+'</span></div>'+
-    (canLen ? '<div class="len-row"><button type="button" data-len="-1"'+(hl<1?' disabled':'')+'>◂ Plus courte</button><span>'+(hl+1)+' pas</span><button type="button" data-len="1"'+(!canGrow(arr, i)?' disabled':'')+'>Plus longue ▸</button></div>' : '')+
-    (isN ? '<div class="chord-row chord-row--2"><button type="button" data-cmode="0" aria-pressed="'+(!chordMode)+'">Notes</button><button type="button" data-cmode="1" aria-pressed="'+chordMode+'">Accords</button></div>'+
-      (isChord && !chordMode ? '<p class="pop-sub chord-hint">Touche des notes pour les ajouter ou les retirer de l’accord.</p>' : '') : '')+
-    '<div class="pop-grid'+(isN && !chordMode?' pop-grid--n':'')+'">';
-  if (chordMode) degList(b).forEach(function(o){
-    var v = chordOn(+o, 3, b.scale), info = chordInfo(b, v);
-    h += '<button type="button" class="pick pick--n pick--chord'+(v===cur?' on':'')+'" data-pickchord="'+v+'" aria-label="Accord '+esc(info.name || 'sur le degré '+o)+' : '+esc(info.notes)+'"><span>'+esc(info.name || o)+'</span><small>'+esc(info.notes)+'</small></button>';
-  });
-  else opts.forEach(function(o){
-    h += '<button type="button" class="pick '+(isN?'pick--n':'pick--s')+((isChord ? parts.indexOf(o) > -1 : o===cur)?' on':'')+'" data-pick="'+o+'"'+(isN?'':' data-snd="'+sndKey(o)+'"')+'><span>'+(isN?o:esc(sndName(o)))+'</span>'+(isN?'':'<small>'+esc(sndDesc(o))+'</small>')+'</button>';
+  var d = {s:cell.dataset.s, b:cell.dataset.b, l:cell.dataset.l, i:cell.dataset.i};
+  var b = findBlock(d.s, d.b), arr = arrOf(d); if (!b || !arr) return;
+  var i = +d.i, cur = arr[i], opts = SOUNDS.map(function(x){ return x.v; }).concat(USER_SOUNDS.map(function(u){ return u.name; }));
+  var h = '<div class="pop-h"><strong>Pas '+(i+1)+'</strong><span>son joué</span></div><div class="pop-grid">';
+  opts.forEach(function(o){
+    h += '<button type="button" class="pick pick--s'+(o===cur?' on':'')+'" data-pick="'+o+'" data-snd="'+sndKey(o)+'"><span>'+esc(sndName(o))+'</span><small>'+esc(sndDesc(o))+'</small></button>';
   });
   h += '<button type="button" class="pick pick--rest'+(cur==='~'?' on':'')+'" data-pick="~"><span>·</span><small>Silence</small>'+'</button></div>'+
-    '<button type="button" class="pop-del" data-pick="__del"'+(arr.length<=hl+1?' disabled':'')+'>'+(hl ? 'Supprimer cette note' : 'Supprimer ce pas')+'</button>';
+    '<button type="button" class="pop-del" data-pick="__del"'+(arr.length<2?' disabled':'')+'>Supprimer ce pas</button>';
   pop.innerHTML = h; showPop(cell);
   pop.onclick = function(e){
-    var lb = e.target.closest('[data-len]');
-    if (lb && !lb.disabled){
-      mutate(function(){ var a = arrOf(d); if (a) setHold(a, i, holdLen(a, i) + (+lb.dataset.len)); });
-      preview(findBlock(d.s, d.b), cur);
-      var nc = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc) openCellPicker(nc); else closePop();
-      return;
-    }
-    var mb = e.target.closest('[data-cmode]');
-    if (mb){ cellChord = {key:ckey, on:mb.dataset.cmode==='1'}; openCellPicker(cell); return; }
-    var pc = e.target.closest('[data-pickchord]');
-    if (pc){
-      var nv = pc.dataset.pickchord;
-      mutate(function(){ var a = arrOf(d); if (a) a[i] = nv; });
-      preview(findBlock(d.s, d.b), nv);
-      closePop();
-      return;
-    }
     var p = e.target.closest('[data-pick]'); if (!p || p.disabled) return;
     var v = p.dataset.pick;
-    if (isChord && /^\d+$/.test(v)){
-      /* dans un accord, une note se coche ou se décoche */
-      var set = parts.slice(), at = set.indexOf(v);
-      if (at > -1) set.splice(at, 1); else set.push(v);
-      set.sort(function(x, y){ return x - y; });
-      var cv = set.length ? set.join(',') : '~';
-      mutate(function(){ var a = arrOf(d); if (a) a[i] = cv; });
-      if (cv !== '~') preview(findBlock(d.s, d.b), cv);
-      var nc3 = canvas.querySelector('.cell[data-key="'+d.b+':'+d.l+':'+d.i+'"]'); if (nc3) openCellPicker(nc3); else closePop();
-      return;
-    }
-    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length > noteSpan(a, i).n) delStep(a, i); } else setStep(a, i, v); });
+    mutate(function(){ var a = arrOf(d); if (!a) return; if (v==='__del'){ if (a.length > 1) a.splice(i, 1); } else a[i] = v; });
     if (v!=='__del' && v!=='~') preview(findBlock(d.s, d.b), v);
     closePop();
   };
@@ -3363,32 +3240,6 @@ function refreshPads(){
   });
   var t = palette.querySelector('[data-chordmode]'); if (t) t.setAttribute('aria-pressed', String(palChord));
   syncPalH();
-}
-/* Durée d'une note : les « _ » qui la suivent */
-/* Supprimer le premier pas d'une note tenue : la note (ou l'accord) passe sur le pas tenu suivant, la fin de la note reste */
-/* Une note tenue est une seule note : son début et ses « _ » vont ensemble.
-   On la supprime ou on la met en silence en entier, on change sa durée en glissant sa fin. */
-function noteHead(a, i){ while (i > 0 && a[i]==='_') i--; return i; }
-function noteSpan(a, i){ var h = noteHead(a, i); return {h:h, n:holdLen(a, h) + 1}; }
-function delStep(a, i){ var sp = noteSpan(a, i); a.splice(sp.h, sp.n); }
-function setStep(a, i, v){
-  var sp = noteSpan(a, i);
-  if (v === '~') for (var k=0;k<sp.n;k++) a[sp.h + k] = '~';
-  else a[sp.h] = v;
-}
-function holdLen(a, i){ var h = 0; while (i + h + 1 < a.length && a[i + h + 1]==='_') h++; return h; }
-function canGrow(a, i){ var j = i + holdLen(a, i) + 1; return j < a.length ? a[j]==='~' : a.length < 16; }
-function setHold(a, i, n){
-  n = Math.max(0, n);
-  var h = holdLen(a, i);
-  for (var k=1; k<=h; k++) a[i + k] = '~';
-  for (var k2=1; k2<=n; k2++){
-    var j = i + k2;
-    if (j >= a.length){ if (a.length >= 16) break; a.push('_'); }
-    else if (a[j]==='~' || a[j]==='_') a[j] = '_';
-    else break;
-  }
-  while (a.length > 1 && a[a.length-1]==='~' && a.length > i + 1 + n && false) a.pop();
 }
 function rangeRow(id, label, sp, v){
   return '<div class="pop-fx">'+(label ? '<span class="pop-lab">'+label+'</span>' : '')+
@@ -3516,7 +3367,7 @@ viewport.addEventListener('click', function(e){
     if (cell) openCellPicker(cell);
   } else if (d.act==='addline'){
     var ab = findBlock(d.s, d.b);
-    if (ab && isRoll(ab)) rollGrow(ab); else mutate(function(){ var b = findBlock(d.s, d.b); if (b) b.lines.push(newLine()); });
+    if (ab && ab.type==='n') rollGrow(ab);
   }
 });
 viewport.addEventListener('change', function(e){
@@ -3562,7 +3413,7 @@ bar.addEventListener('click', function(e){
   } else if (sel.k==='block'){
     var loc = locate(sel.b), b = loc.b;
     if (a==='addstep') mutate(function(){ if (b.steps.length<16) b.steps.push('~'); });
-    if (a==='addline'){ if (isRoll(b)) rollGrow(b); else mutate(function(){ b.lines.push(newLine()); }); }
+    if (a==='addline' && b.type==='n') rollGrow(b);
     if (a==='solo'){ toggleSolo('block', b.id); return; }
     if (a==='zoom'){ zoomToBlock(b.id); return; }
     if (a==='mute') mutate(function(){ b.muted = !b.muted; });
@@ -3606,10 +3457,8 @@ function multiApply(action){
   mutate(function(){
     Object.keys(groups).forEach(function(g){
       var p = g.split(':'), b = findBlock(null, p[0]); if (!b) return;
-      var arr = b.type==='s' ? sLines(b)[+p[1]] : (b.lines ? b.lines[+p[1]] : null); if (!arr) return;
-      var all = {};
-      groups[g].forEach(function(i){ if (i >= arr.length) return; var sp = noteSpan(arr, i); for (var k=0;k<sp.n;k++) all[sp.h + k] = 1; });
-      var idx = Object.keys(all).map(Number).sort(function(x, y){ return y - x; });
+      var arr = b.type==='s' ? sLines(b)[+p[1]] : null; if (!arr) return;
+      var idx = groups[g].filter(function(i){ return i < arr.length; }).sort(function(x, y){ return y - x; });
       if (action==='rest') idx.forEach(function(i){ arr[i] = '~'; });
       else { idx.forEach(function(i){ arr.splice(i, 1); }); if (!arr.length) arr.push('~'); }
     });
@@ -3718,11 +3567,11 @@ function onPaletteTap(p){
       return;
     }
     if (isRoll(b)){ rollPaletteTap(b, p); return; }
-    var tgt = b.type==='s' ? sLines(b)[sel.k==='line' ? sel.l : 0] : (sel.k==='line' ? b.lines[sel.l] : b.lines[b.lines.length-1]);
+    var tgt = sLines(b)[sel.k==='line' ? sel.l : 0];
     if (tgt.length>=16){ toast('Une ligne compte 16 pas au maximum.'); return; }
     mutate(function(){
       var bb = findBlock(sel.s, sel.b);
-      var t = bb.type==='s' ? sLines(bb)[sel.k==='line' ? sel.l : 0] : (sel.k==='line' ? bb.lines[sel.l] : bb.lines[bb.lines.length-1]);
+      var t = sLines(bb)[sel.k==='line' ? sel.l : 0];
       t.push(p.v);
     });
     return;
@@ -3743,8 +3592,7 @@ function onPaletteTap(p){
     if (p.v==='line'){
       var nb = selBlock();
       if (!nb || nb.type!=='n'){ toast('Sélectionne un bloc Mélo pour y ajouter une ligne de notes.'); return; }
-      if (isRoll(nb)){ rollGrow(nb); return; }
-      mutate(function(){ findBlock(sel.s, sel.b).lines.push(newLine()); });
+      rollGrow(nb);
       return;
     }
     var c2 = viewCenter();
@@ -3768,7 +3616,7 @@ function payloadOf(src){
   var d = src.dataset;
   if (d.src==='stack') return {k:'mvStack', s:d.s};
   if (d.src==='block') return {k:'mvBlock', s:d.s, b:d.b};
-  return {k:'mvLine', s:d.s, b:d.b, l:+d.l};
+  return null;
 }
 function blockTypeOf(n){ if (!n.dataset.b) return null; var b = findBlock(n.dataset.s, n.dataset.b); return b ? b.type : null; }
 function accepts(n, p){
@@ -3781,25 +3629,18 @@ function accepts(n, p){
       if (p.k==='blk' && (p.v==='s' || p.v==='n' || p.v==='bass' || p.v==='code')) return true;
       if (p.k==='mvBlock') return p.b!==n.dataset.b;
       if (bt==='n' && p.k==='blk' && p.v==='line') return true;
-      if (bt==='n' && p.k==='mvLine') return !isRoll(findBlock(n.dataset.s, n.dataset.b));
       return false;
-    case 'line':
-      if (p.k==='blk' && p.v==='line') return true;
-      if (p.k==='note' || p.k==='rest' || p.k==='fx') return true;
-      if (p.k==='mvLine') return !(p.b===n.dataset.b && p.l===+n.dataset.l);
-      return false;
-    case 'mouth': return (p.k==='blk' && p.v==='line') || (p.k==='mvLine' && !isRoll(findBlock(n.dataset.s, n.dataset.b)));
+    case 'mouth': return p.k==='blk' && p.v==='line';
     case 'roll': return p.k==='note' || p.k==='rest' || (p.k==='blk' && p.v==='line');
     case 'title': return (p.k==='blk' && (p.v==='s' || p.v==='n' || p.v==='bass' || p.v==='code')) || (p.k==='mvBlock');
     case 'canvas': return (p.k==='blk' && p.v!=='line') || p.k==='mvStack' || p.k==='mvBlock';
-    case 'trash': return p.k==='mvStack' || p.k==='mvBlock' || p.k==='mvLine';
+    case 'trash': return p.k==='mvStack' || p.k==='mvBlock';
   }
   return false;
 }
 function findTarget(el, p){
   if (!el || !el.closest) return null;
   if (p.k==='mvBlock' && el.closest('[data-b="'+p.b+'"]')) return null;
-  if (p.k==='mvLine' && el.closest('[data-lkey="'+p.b+':'+p.l+'"]')) return null;
   var n = el.closest('[data-drop]');
   while (n){
     if (accepts(n, p)) return n;
@@ -3848,7 +3689,6 @@ function startDrag(){
 }
 /* Insertion points: where a block lands in a stack, or a line lands in an n block */
 function isBlkP(p){ return (p.k==='blk' && (p.v==='s' || p.v==='n' || p.v==='bass' || p.v==='code')) || p.k==='mvBlock'; }
-function isLineP(p){ return (p.k==='blk' && p.v==='line') || p.k==='mvLine'; }
 function stackInsertAt(x, y){
   var best = null, pad = 24*V.z;
   canvas.querySelectorAll('.stack').forEach(function(el){
@@ -3861,23 +3701,6 @@ function stackInsertAt(x, y){
       if (y > ir.top + ir.height/2){ idx = i+1; barY = ir.bottom; }
     });
     best = {s:el.dataset.stack, index:idx, x:r.left, y:barY, w:Math.max(140, title.width)};
-  });
-  return best;
-}
-function lineInsertAt(x, y){
-  var best = null, pad = 20*V.z;
-  canvas.querySelectorAll('.nblk').forEach(function(el){
-    if (el.querySelector('.roll')) return;   /* piano roll : pas de lignes, le dépôt se fait sur la bande */
-    var r = el.getBoundingClientRect();
-    if (x < r.left - pad || x > r.right + pad*3 || y < r.top - pad || y > r.bottom + 40*V.z) return;
-    var top = el.querySelector('.b-n').getBoundingClientRect(), mouth = el.querySelector('.mouth').getBoundingClientRect();
-    var lines = el.querySelectorAll('.b-line'), idx = 0, barY = top.bottom + 3*V.z;
-    lines.forEach(function(ln, i){
-      var lr = ln.getBoundingClientRect();
-      if (y > lr.top + lr.height/2){ idx = i+1; barY = lr.bottom; }
-    });
-    var w = lines[0] ? lines[0].getBoundingClientRect().width : 160;
-    best = {s:el.dataset.s, b:el.dataset.b, index:idx, x:mouth.left + 6*V.z, y:barY, w:w};
   });
   return best;
 }
@@ -3896,7 +3719,6 @@ function moveDrag(e){
   var onIsland = under && under.closest && under.closest('.island');
   drag.ins = null;
   if (!onIsland && isBlkP(drag.p)) drag.ins = stackInsertAt(e.clientX, e.clientY);
-  else if (!onIsland && isLineP(drag.p)) drag.ins = lineInsertAt(e.clientX, e.clientY);
   showIns(drag.ins);
   var t = drag.ins ? null : findTarget(under, drag.p);
   if (t !== drag.target){
@@ -3975,9 +3797,6 @@ function performInsert(p, ins){
       } else blk = newBlock(p.v);
       st.blocks.splice(idx, 0, blk);
       sel = {k:'block', s:st.id, b:blk.id};
-    } else {
-      var dest = findBlock(ins.s, ins.b); if (!dest) return;
-      if (p.k==='mvLine') moveLine(p, dest, ins.index); else dest.lines.splice(ins.index, 0, newLine());
     }
   });
 }
@@ -3993,14 +3812,6 @@ function worldPoint(e, d){
   var ox = d.p.k==='mvStack' ? d.offX : 24, oy = d.p.k==='mvStack' ? d.offY : 20;
   return {x: Math.round((e.clientX - ox - V.tx)/V.z), y: Math.round((e.clientY - oy - V.ty)/V.z)};
 }
-function moveLine(p, dest, index){
-  var src = findBlock(p.s, p.b);
-  if (!src || !src.lines[p.l]) return;
-  if (src !== dest && src.lines.length < 2){ toast('Un bloc Mélo garde au moins une ligne.'); return; }
-  var line = src.lines.splice(p.l, 1)[0];
-  if (src === dest && p.l < index) index--;
-  dest.lines.splice(index, 0, line);
-}
 function addFx(b, type){ b.fxFold = false; if (!b.fx.some(function(f){ return f.type===type; })) b.fx.push({type:type, v:FX[type].def}); }
 function performDrop(n, d, e){
   var p = d.p, nd = n.dataset, td = nd.drop, pt = worldPoint(e, d);
@@ -4008,27 +3819,18 @@ function performDrop(n, d, e){
   mutate(function(){
     var b, loc, blk;
     switch (td){
-      case 'cell': { var a = arrOf(nd); if (a) setStep(a, +nd.i, p.v); break; }
+      case 'cell': { var a = arrOf(nd); if (a) a[+nd.i] = p.v; break; }
       case 'slot': { var a2 = arrOf(nd); if (a2 && a2.length<16) a2.push(p.v); break; }
       case 'block':
         loc = locate(nd.b); if (!loc) break; b = loc.b;
         if (p.k==='fx') addFx(b, p.v);
-        else if (p.k==='blk' && p.v==='line'){ if (isRoll(b)) b.len = Math.min(ROLL_MAX_LEN, rollLen(b) + 1); else b.lines.push(newLine()); }
-        else if (p.k==='mvLine') moveLine(p, b, b.lines.length);
+        else if (p.k==='blk' && p.v==='line') b.len = Math.min(ROLL_MAX_LEN, rollLen(b) + 1);
         else if (p.k==='blk'){ blk = newBlock(p.v); loc.s.blocks.splice(loc.i+1, 0, blk); sel = {k:'block', s:loc.s.id, b:blk.id}; }
         else if (p.k==='mvBlock'){ blk = takeBlock(p.b); var l2 = locate(nd.b); l2.s.blocks.splice(l2.i+1, 0, blk); sel = {k:'block', s:l2.s.id, b:blk.id}; }
         break;
-      case 'line':
-        b = findBlock(nd.s, nd.b); var li = +nd.l; if (!b) break;
-        if (p.k==='blk') b.lines.splice(li+1, 0, newLine());
-        else if (p.k==='note' || p.k==='rest'){ if (b.lines[li].length<16) b.lines[li].push(p.v); }
-        else if (p.k==='mvLine') moveLine(p, b, li+1);
-        else if (p.k==='fx') addFx(b, p.v);
-        break;
       case 'mouth':
         b = findBlock(nd.s, nd.b); if (!b) break;
-        if (isRoll(b)){ if (p.k==='blk') b.len = Math.min(ROLL_MAX_LEN, rollLen(b) + 1); break; }
-        if (p.k==='blk') b.lines.push(newLine()); else moveLine(p, b, b.lines.length);
+        if (p.k==='blk') b.len = Math.min(ROLL_MAX_LEN, rollLen(b) + 1);
         break;
       case 'roll': {
         /* une note posée là où on la lâche, d'un pas ; « Ligne » allonge la phrase d'un tour */
@@ -4052,7 +3854,6 @@ function performDrop(n, d, e){
       case 'trash':
         if (p.k==='mvStack') P.stacks = P.stacks.filter(function(x){ return x.id!==p.s; });
         else if (p.k==='mvBlock') takeBlock(p.b);
-        else if (p.k==='mvLine'){ var lb = findBlock(p.s, p.b); if (lb && lb.lines.length>1) lb.lines.splice(p.l, 1); }
         sel = null;
         break;
     }
@@ -4440,7 +4241,7 @@ function exportCycles(){
   var L = 1;
   P.stacks.forEach(function(st){ if (st.muted) return; st.blocks.forEach(function(b){
     if (b.muted || b.type==='code') return;
-    var sp = speedOf(b), n = isRoll(b) ? rollLen(b) : b.type==='n' ? b.lines.length : 1;
+    var sp = speedOf(b), n = b.type==='n' ? rollOf(b).len : 1;
     var per = Math.max(1, Math.round(n / Math.min(1, sp)));
     (b.fx || []).forEach(function(f){ if (f.seq) per = lcm(per, f.seq.length); });
     L = Math.min(32, lcm(L, per));
