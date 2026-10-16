@@ -1,20 +1,16 @@
 /* #46 Aller-retour par le vrai bouton Importer : code → blocs → code identique */
-const { openApp } = require('./lib');
+const { openApp, loadDemo, demoList } = require('./lib');
 const importCode = async (p, code) => { await p.evaluate(c => { document.getElementById('importText').value = c; document.getElementById('importReplace').click(); }, code); await p.waitForTimeout(300); };
 const meloState = p => p.evaluate(() => JSON.stringify(window.BTB.getProject().stacks.flatMap(s => s.blocks.filter(b => b.type === 'n').map(b => [b.len, b.notes]))));
 module.exports = async ({ url, check }) => {
-  const seen = {};
-  for (let seed = 1; seed <= 40 && Object.keys(seen).length < 10; seed++) {
-    const p = await openApp(url, { seed });
-    const title = await p.evaluate(() => window.BTB.getProject().stacks[0].title);
-    if (!seen[title]) {
-      seen[title] = 1;
-      const code1 = await p.$eval('#code', x => x.textContent), s1 = await meloState(p);
-      await importCode(p, code1);
-      check(code1 === await p.$eval('#code', x => x.textContent) && s1 === await meloState(p) && !p.errors.length, 'démo « ' + title + ' » : même code et mêmes notes après import');
-    }
-    await p.close2();
+  const q = await openApp(url);
+  for (const d of await demoList(q)) {
+    await loadDemo(q, d.id);
+    const code1 = await q.$eval('#code', x => x.textContent), s1 = await meloState(q);
+    await importCode(q, code1);
+    check(code1 === await q.$eval('#code', x => x.textContent) && s1 === await meloState(q) && !q.errors.length, 'démo « ' + d.name + ' » : même code et mêmes notes après import');
   }
+  await q.close2();
   const p = await openApp(url);
   const free = '$: n("0@6 ~@2 2@2 ~ 4@9 [0,2,4]@8 ~@4, 7@3 ~@5").slow(2)\n  .scale("A3:minor").s("piano")';
   await importCode(p, free);

@@ -1,5 +1,5 @@
 /* #46 Mélodie libre : conversion des cases, écriture et relecture du code Strudel (tests unitaires des fonctions) */
-const { openApp } = require('./lib');
+const { openApp, loadDemo, demoList } = require('./lib');
 module.exports = async ({ url, check }) => {
   const p = await openApp(url);
   const r = await p.evaluate(() => {
@@ -37,16 +37,14 @@ module.exports = async ({ url, check }) => {
     return out;
   });
   r.forEach(([c, m]) => check(c, m));
-  // les 10 démos : cases → notes → code → relecture identique
-  const seen = {};
-  for (let seed = 1; seed <= 40 && Object.keys(seen).length < 10; seed++) {
-    const q = await openApp(url, { seed });
-    const res = await q.evaluate(() => {
+  // les démos : code → relecture identique
+  for (const d of await demoList(p)) {
+    await loadDemo(p, d.id);
+    const ok = await p.evaluate(() => {
       const R = window.BTB._roll, P = window.BTB.getProject(), sort = ns => ns.slice().sort((x, y) => x.t - y.t || x.d - y.d);
-      return { title: P.stacks[0].title, ok: P.stacks.every(st => st.blocks.every(b => { if (b.type !== 'n') return true; const back = R.parse(R.toMini(b.notes, b.len), b.len); return back && back.len === b.len && JSON.stringify(sort(back.notes).map(n => [n.t.toFixed(4), n.d.toFixed(4), n.v])) === JSON.stringify(sort(b.notes).map(n => [n.t.toFixed(4), n.d.toFixed(4), n.v])); })) };
+      return P.stacks.every(st => st.blocks.every(b => { if (b.type !== 'n') return true; const back = R.parse(R.toMini(b.notes, b.len), b.len); return back && back.len === b.len && JSON.stringify(sort(back.notes).map(n => [n.t.toFixed(4), n.d.toFixed(4), n.v])) === JSON.stringify(sort(b.notes).map(n => [n.t.toFixed(4), n.d.toFixed(4), n.v])); }));
     });
-    if (!seen[res.title]) { seen[res.title] = 1; check(res.ok, 'démo « ' + res.title + ' » : code → relecture identique'); }
-    await q.close2();
+    check(ok, 'démo « ' + d.name + ' » : code → relecture identique');
   }
   check(p.errors.length === 0, 'aucune erreur JS'); await p.close2();
 };
