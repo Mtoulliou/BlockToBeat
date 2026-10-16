@@ -3034,35 +3034,42 @@ function drawWave(amp, ph, style, bf, blink, curl){
 }
 /* Début du passage en cours : une mesure sur trois environ lance un nouveau passage, jamais plus de 4 mesures d'affilée */
 function segStart(bar){ for (var b = bar; b > bar - 4 && b > 0; b--) if (rnd(b*1.73) < .38) return b; return Math.max(0, bar - 3 + (bar % 1)); }
+/* La vague réagit à ce qu'on entend (#41) : chaque percussion la fait rebondir (la grosse caisse plus fort),
+   chaque note de mélodie la fait onduler. Sans aucun son, même en lecture, elle reste calme. */
+var danceD = -99, danceK = 0, danceM = -99, dancePh = 0, danceT = 0;
+function danceHit(e){ var ts = performance.now()/1000; if (e.type==='s'){ danceD = ts; danceK = e.kick ? 1 : .55; } else danceM = ts; }
 function dance(now){
   if (!mascot) return;
   var ts = performance.now()/1000, live = playing && ctx;
   if (ts > nextBlink){ blinkUntil = ts + .11; nextBlink = ts + 1.8 + Math.random()*4.5; }
   var blink = ts < blinkUntil;
+  var dE = Math.exp(-(ts - danceD)/.4), mE = Math.exp(-(ts - danceM)/.9);   /* énergie des percussions et de la mélodie */
+  if (live && dE < .03 && mE < .03) live = false;                           /* en lecture mais rien ne sonne : au calme */
   if (!live || reduceMotion){
     drawWave(reduceMotion ? 3.5 : 3 + Math.sin(ts*1.4)*.8, reduceMotion ? 0 : ts*1.6, 'wave', 0, blink, 0);
     mascot.style.transformOrigin = '50% 100%';
-    mascot.style.transform = live ? 'none' : 'translateY(' + (Math.sin(ts*1.1)*.8).toFixed(2) + 'px) rotate(' + (Math.sin(ts*.7)*3).toFixed(1) + 'deg)';
+    mascot.style.transform = reduceMotion ? 'none' : 'translateY(' + (Math.sin(ts*1.1)*.8).toFixed(2) + 'px) rotate(' + (Math.sin(ts*.7)*3).toFixed(1) + 'deg)';
+    danceT = ts;
     return;
   }
+  var dt = Math.min(.1, Math.max(0, ts - danceT)); danceT = ts;
+  dancePh += dt*(1.5 + 9*mE);   /* la vague avance plus vite quand la mélodie joue */
   var pos = (now - startT)/cycleDur(), beat = Math.max(0, pos*4), bi = Math.floor(beat), bf = beat - bi;
   var bar = Math.floor(beat/4), seg = segStart(bar);
   var move = bar < 1 ? 'groove' : pickW(MOVES, rnd(seg*5.11)), style = DSTYLES[Math.floor(rnd(seg*9.7)*DSTYLES.length)];
-  var energy = Math.min(1, lvl*9);
-  var bounce = pos > 0 ? Math.pow(1 - bf, 3) : 0;
-  var amp = Math.min(5.5, 2.6 + energy*2.4 + bounce*1.4), ph = pos*Math.PI*4 + rnd(seg)*6;
-  /* petites irrégularités : chaque temps n'a pas la même force */
+  /* rebond : à chaque coup de percussion, plus fort sur la grosse caisse */
+  var hit = Math.max(0, 1 - (ts - danceD)/.3), bounce = Math.pow(hit, 3)*danceK;
+  var amp = Math.min(5.5, 1.2 + mE*3.4 + bounce*1.2), ph = dancePh + rnd(seg)*6;
   var accent = .65 + .7*rnd(bi*3.7), tilt = (rnd(bi*1.9) - .5)*10*accent;
-  var rot = tilt*Math.sin(bf*Math.PI), jy = -4*bounce*accent, sx = 1 + .1*bounce*accent, sy = 1 - .08*bounce*accent, tx = 0, origin = '50% 100%';
-  if (move === 'sway'){ rot = Math.sin(beat*Math.PI/2)*11; tx = Math.sin(beat*Math.PI/2)*2.5; jy = -2*bounce; }
-  if (move === 'bob'){ jy = -2.5*Math.abs(Math.sin(beat*Math.PI)); rot = Math.sin(beat*Math.PI)*4; sx = 1 + .05*bounce; sy = 1 - .05*bounce; }
-  if (move === 'jump' && rnd(bi*2.9 + seg) < .75){
-    var h = Math.sin(bf*Math.PI);
-    jy = -(6 + 5*accent)*h; sx = 1 - .07*h + .12*bounce*(bf < .15 ? 1 : 0); sy = 1 + .12*h - .1*(bf < .12 ? 1 - bf/.12 : 0);
-    rot = (rnd(bi*5.3) - .5)*16*h;
+  var rot = tilt*bounce, jy = -6*bounce*accent, sx = 1 + .12*bounce*accent, sy = 1 - .1*bounce*accent, tx = 0, origin = '50% 100%';
+  /* ondulation : la mélodie la balance doucement */
+  rot += Math.sin(beat*Math.PI/2)*8*mE; tx = Math.sin(beat*Math.PI/2)*2.2*mE;
+  if (move === 'jump' && dE > .3 && rnd(bi*2.9 + seg) < .75){
+    var h = Math.sin(bf*Math.PI)*dE;
+    jy = Math.min(jy, -(6 + 5*accent)*h); rot += (rnd(bi*5.3) - .5)*14*h;
   }
   var curl = 0;
-  if (rollBar(bar)){
+  if (dE > .3 && rollBar(bar)){
     /* une roulade par mesure, sur un temps au hasard : elle se met en boule, roule, puis se déroule.
        Elle ne tourne qu'une fois roulée en boule, donc reste toujours dans le cadre */
     var k = Math.floor(rnd(bar*2.31)*3), t = (beat - bar*4 - k)/1.6;
@@ -3091,7 +3098,7 @@ function frame(){
       var e = vq[q];
       if (e.t <= now){
         if (e.type==='metro'){ var mb = document.getElementById('metroBtn'); if (mb){ mb.classList.add('tick'); clearTimeout(mb._t); mb._t = setTimeout(function(){ mb.classList.remove('tick'); }, 90); } continue; }
-        pulseBlock(e.id);
+        pulseBlock(e.id); danceHit(e);
         if (e.kick) strobe = 1;
         flash = Math.min(1, flash + (e.type==='s' ? .45 : .3));
         setFx('--flash-rgb', e.type==='s' ? '255,138,61' : '185,148,255');

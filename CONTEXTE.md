@@ -145,7 +145,8 @@ Repères (cherche le nom dans le fichier).
 - Gestes : appui long sur un groupe ou un bloc = solo, double toucher = muet, appui long sur un pas = sélection multiple.
 - Mode Morceau : timeline à plusieurs lignes (`songLanes`, `songAt`).
 - Les groupes ne se chevauchent jamais (`resolveOverlaps`).
-- Mascotte (une vague avec des yeux) qui danse au rythme.
+- Mascotte (une vague avec des yeux) qui réagit à ce qu'on entend (#41) : chaque percussion la fait rebondir (`danceHit`, appelé pour chaque son joué dans `frame`), chaque note de mélodie la fait onduler, et sans aucun son elle reste calme, même en lecture.
+- Gestes du plan : au premier doigt posé (`e.isPrimary`), les touchers dont la fin s'est perdue sont oubliés, sinon ils créent un faux pincement (#54).
 - Au lancement : une des 10 démos (`DEMOS`, `loadDemo`) au hasard.
 - Performance : les effets qui changent à chaque image passent par `setFx` sur quelques éléments (`.vbg` grille, `.vglow` lueur, `.strobe`, `.edge-light`, `#play`), **jamais sur la racine** (sinon tout le plan recalcule son style). La tête de lecture utilise l'index `cellIdx` / `lineIdx` / `blockIdx` construit par `indexCanvas` après chaque `renderCanvas`.
 - Firefox : la classe `is-firefox` sur `<html>` remplace le flou des îles par un fond opaque (Firefox dessinait mal le flou).
