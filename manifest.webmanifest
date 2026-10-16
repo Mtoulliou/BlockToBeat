@@ -1,6 +1,6 @@
 {
-  "name": "BlockToBeat",
-  "short_name": "BlockToBeat",
+  "name": "Strudy",
+  "short_name": "Strudy",
   "description": "Compose de la musique en emboîtant des blocs, le vrai code Strudel s'écrit tout seul.",
   "lang": "fr",
   "start_url": "./",

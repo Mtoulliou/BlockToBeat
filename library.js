@@ -1,4 +1,4 @@
-/* BlockToBeat : Library (#20)
+/* Strudy : Library (#20)
    Les projets sont enregistrés sur l'appareil (IndexedDB), rangés dans des dossiers simples (un seul niveau).
    Un projet ouvert depuis la Library s'enregistre tout seul à chaque modification.
    Le Lab est utilisé seulement à travers window.BTB (voir index.html et CONTEXTE.md). */
