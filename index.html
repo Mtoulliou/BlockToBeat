@@ -1072,6 +1072,9 @@ function dragSrcOf(t){
 viewport.addEventListener('pointerdown', function(e){
   if (dragSrcOf(e.target) || e.target.closest('select,input,label')) return;
   if (e.pointerType==='mouse' && e.button!==0) return;
+  /* premier doigt posé (le navigateur le sait) : on oublie les touchers dont la fin s'est perdue, sinon ils
+     forment avec ce doigt un faux pincement et le plan zoome pendant qu'on le déplace (#54) */
+  if (e.isPrimary){ pts.clear(); pinch = null; }
   var rl = !multi && pts.size===0 && e.target.closest && e.target.closest('.roll-note, .roll-lane, .roll-body');
   if (rl && startRoll(e, rl)) return;
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY});
