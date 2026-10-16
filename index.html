@@ -4525,17 +4525,19 @@ palette.addEventListener('click', function(){ requestAnimationFrame(syncPalH); }
 
 /* ---------- Démos : une est tirée au hasard à chaque ouverture, et sert de musique de fond ---------- */
 var DEMOS = [
+  /* #56 : 10 démos plus abouties, une par style. Elles s'importent entièrement en blocs (aucun bloc code)
+     et utilisent la mélodie libre : notes longues, contretemps, phrases de plusieurs tours, voix superposées. */
   {
     id: "lofi",
     name: "Lo-fi Chill",
     bpm: 80,
     code: `setcps(80/60/4)
 stack(
-  s("bd ~ ~ bd, ~ sd ~ sd").bank("RolandTR808").lpf(2000).gain(.8),
-  s("hh*8").bank("RolandTR808").gain(".3 .15").lpf(5000),
-  note("<[c3,eb3,g3,bb3] [ab2,c3,eb3,g3] [f2,ab2,c3,eb3] [g2,bb2,d3,f3]>")
-    .s("triangle").attack(.05).release(.5).lpf(1200).room(.6).gain(.4),
-  note("<c2 ab1 f1 g1>").s("sine").gain(.6)
+  s("bd ~ ~ bd ~ ~ bd ~, ~ ~ sd ~ ~ ~ sd ~").bank("RolandTR808").lpf(1800).gain(.8),
+  s("hh*8").bank("RolandTR808").gain("[.3 .12 .22 .12]*2").lpf(4500),
+  n("<[0,2,4,6] [5,7,9,11] [3,5,7,9] [4,6,8,10]>").scale("D3:dorian").s("gm_epiano1").attack(.02).release(.6).room(.5).gain(.45),
+  n("~@2 4@3 2 ~@2 1@2 0@4 ~@2, ~@8 7@2 6 4@5").slow(2).scale("D4:dorian").s("gm_acoustic_guitar_nylon").delay(.3).room(.4).gain(.35),
+  n("<0 5 3 4>").scale("D2:dorian").s("gm_acoustic_bass").gain(.7)
 )`,
   },
   {
@@ -4544,13 +4546,13 @@ stack(
     bpm: 124,
     code: `setcps(124/60/4)
 stack(
-  s("bd*4").bank("RolandTR909"),
-  s("~ cp ~ cp").bank("RolandTR909").gain(.6),
-  s("[~ oh]*4").bank("RolandTR909").gain(.4),
-  note("<[a3,c4,e4] [f3,a3,c4] [c4,e4,g4] [g3,b3,d4]>")
-    .struct("~ x ~ ~ x ~ ~ x")
-    .s("sawtooth").lpf(1800).release(.2).room(.4).gain(.35),
-  note("<a1 f1 c2 g1>*8").s("sawtooth").lpf(400).decay(.1).sustain(0).gain(.6)
+  s("bd*4").bank("RolandTR909").gain(.95),
+  s("~ cp ~ cp").bank("RolandTR909").room(.2).gain(.6),
+  s("[~ hh]*4").bank("RolandTR909").gain(.45),
+  s("~ ~ ~ ~ ~ ~ ~ oh").bank("RolandTR909").gain(.35),
+  n("<[0,2,4] [5,7,9] [3,5,7] [4,6,8]>").struct("~ x ~ x ~ ~ x ~").scale("A3:minor").s("gm_epiano1").release(.3).room(.4).gain(.4),
+  n("0 ~ 0 7 ~ 0 5 ~").scale("A1:minor").s("sawtooth").lpf(sine.range(300, 900).slow(8)).decay(.12).sustain(0).gain(.55),
+  n("~@4 4@2 5 4@3 2@2 0@4").slow(2).scale("A4:minor").s("gm_flute").delay(.25).room(.5).gain(.3)
 )`,
   },
   {
@@ -4559,12 +4561,12 @@ stack(
     bpm: 132,
     code: `setcps(132/60/4)
 stack(
-  s("bd*4").bank("RolandTR909").shape(.4),
-  s("hh*16").bank("RolandTR909").gain("[.4 .2]*8"),
-  s("~ cp").bank("RolandTR909").room(.3).gain(.5),
-  note("c2 c2 c3 c2 eb2 c2 g2 c2")
-    .s("square").lpf(sine.range(300, 1500).slow(4)).lpq(8)
-    .decay(.1).sustain(0).gain(.45)
+  s("bd*4").bank("RolandTR909").shape(.3),
+  s("hh*16").bank("RolandTR909").gain("[.28 .1 .18 .1]*4").hpf(6000),
+  s("~ hh ~ hh ~ hh ~ [hh hh]").bank("RolandTR909").gain(.35),
+  s("~ cp ~ ~ ~ cp ~ cp").bank("RolandTR909").room(.4).gain(.45),
+  n("0 0 7 0 3 0 9 0 0 0 7 0 5 0 3 1").scale("C2:phrygian").s("square").lpf(sine.range(250, 1800).slow(8)).lpq(10).decay(.09).sustain(0).gain(.55),
+  n("[0,2,4]@3 ~@5 [1,3,5]@2 ~@6").slow(2).scale("C4:phrygian").s("sawtooth").lpf(1400).delay(.5).room(.6).gain(.32)
 )`,
   },
   {
@@ -4573,11 +4575,13 @@ stack(
     bpm: 174,
     code: `setcps(174/60/4)
 stack(
-  s("bd ~ ~ ~ sd ~ ~ bd ~ ~ bd ~ sd ~ ~ ~").bank("RolandTR909"),
-  s("hh*8").bank("RolandTR909").gain(.3),
-  note("<e1 e1 g1 d1>").s("sawtooth").lpf(sine.range(200, 800).slow(2)).gain(.6),
-  note("<[e4,g4,b4] [c4,e4,g4]>").slow(2)
-    .s("triangle").release(1).room(.8).gain(.25)
+  s("bd ~ ~ ~ ~ ~ ~ ~ ~ ~ bd ~ ~ ~ ~ ~").bank("RolandTR909").gain(.9),
+  s("~ ~ ~ ~ sd ~ ~ ~ ~ ~ ~ ~ sd ~ ~ sd").bank("RolandTR909").gain(.8),
+  s("hh*16").bank("RolandTR909").gain("[.3 .12 .2 .12]*4"),
+  s("~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ rim").bank("RolandTR909").gain(.4),
+  n("0@3 ~ 0 ~@2 3@2 ~ 5@3 ~ 4@2").slow(2).scale("E1:minor").s("sawtooth").lpf(sine.range(200, 900).slow(4)).gain(.6),
+  n("<[0,2,4,6] [5,7,9,11]>").slow(2).scale("E3:minor").s("gm_string_ensemble_1").attack(.4).release(1.5).room(.8).gain(.25),
+  n("~@2 7 ~ 9@2 7 4@3 ~ 2 4@4, ~@8 11@2 9@6").slow(2).scale("E4:minor").s("triangle").delay(.3).room(.5).gain(.25)
 )`,
   },
   {
@@ -4586,12 +4590,13 @@ stack(
     bpm: 100,
     code: `setcps(100/60/4)
 stack(
-  s("bd ~ bd ~, ~ sd ~ sd").bank("RolandTR808").room(.4),
-  note("<a1 f1 c2 g1>*8").s("sawtooth").lpf(600).decay(.12).sustain(0).gain(.5),
-  note("<[a3 c4 e4 c4] [f3 a3 c4 a3] [c4 e4 g4 e4] [g3 b3 d4 b3]>*2")
-    .s("square").lpf(2500).delay(.4).gain(.3),
-  note("<[a3,c4,e4] [f3,a3,c4] [c4,e4,g4] [g3,b3,d4]>")
-    .s("sawtooth").attack(.3).release(.8).lpf(900).room(.7).gain(.25)
+  s("bd ~ ~ ~ bd ~ ~ ~").bank("RolandTR808").room(.3),
+  s("~ ~ sd ~ ~ ~ sd ~").bank("RolandTR808").room(.6).gain(.75),
+  s("hh*8").bank("RolandTR808").gain("[.35 .2]*4"),
+  n("<0 5 2 6>*8").scale("A1:minor").s("sawtooth").lpf(700).decay(.12).sustain(0).gain(.5),
+  n("<[0 2 4 2]*4 [5 7 9 7]*4 [2 4 6 4]*4 [6 8 10 8]*4>").scale("A3:minor").s("square").lpf(2400).delay(.35).gain(.22),
+  n("<[0,2,4] [5,7,9] [2,4,6] [6,8,10]>").scale("A3:minor").s("sawtooth").attack(.3).release(.8).lpf(1000).room(.7).gain(.22),
+  n("7@6 9@2 7@4 4@4 5@6 4@2 2@8").slow(4).scale("A4:minor").s("sawtooth").lpf(2400).delay(.3).room(.4).gain(.28)
 )`,
   },
   {
@@ -4600,12 +4605,13 @@ stack(
     bpm: 95,
     code: `setcps(95/60/4)
 stack(
-  s("bd*4, [~ ~ ~ sd ~ ~ sd ~]*2").bank("RolandTR808"),
-  s("hh*8").bank("RolandTR808").gain(.3),
-  note("<[c4,eb4,g4] [bb3,d4,f4] [ab3,c4,eb4] [bb3,d4,f4]>")
-    .struct("x ~ ~ x ~ ~ x ~")
-    .s("triangle").release(.2).room(.4).gain(.35),
-  note("<c2 bb1 ab1 bb1>").struct("x ~ ~ x ~ ~ x ~").s("sine").gain(.7)
+  s("bd ~ ~ ~ bd ~ ~ ~").bank("RolandTR808").gain(.9),
+  s("~ ~ ~ sd ~ ~ sd ~").bank("RolandTR808").gain(.75),
+  s("hh*8").bank("RolandTR808").gain("[.3 .18]*4"),
+  s("~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ rim ~ rim ~").bank("RolandTR808").gain(.35),
+  n("<[0,2,4] [5,7,9] [3,5,7] [4,6,8]>").struct("x ~ ~ x ~ ~ x ~").scale("C4:minor").s("gm_acoustic_guitar_nylon").room(.3).gain(.45),
+  n("<0 5 3 4>").struct("x ~ ~ x ~ ~ x ~").scale("C2:minor").s("sine").shape(.2).gain(.75),
+  n("~@3 4 ~ 4 3 2@2 ~ 0@3 ~@3 2 3 4@3 2@2 0@6 ~@2").slow(2).scale("C5:minor").s("gm_marimba").room(.3).gain(.4)
 )`,
   },
   {
@@ -4614,11 +4620,13 @@ stack(
     bpm: 140,
     code: `setcps(140/60/4)
 stack(
-  s("bd ~ ~ ~ ~ ~ ~ bd ~ ~ bd ~ ~ ~ ~ ~").bank("RolandTR808"),
-  s("~ ~ ~ ~ ~ ~ ~ ~ cp ~ ~ ~ ~ ~ ~ ~").bank("RolandTR808").room(.3),
-  s("hh hh hh hh hh hh [hh hh hh] hh").bank("RolandTR808").gain(.35),
-  note("<c2 c2 ab1 g1>").s("sine").shape(.3).gain(.8),
-  note("c5 ~ eb5 ~ g5 ~ f5 eb5").s("triangle").room(.5).gain(.25)
+  s("bd ~ ~ ~ ~ ~ ~ bd ~ ~ bd ~ ~ ~ ~ ~").bank("RolandTR808").gain(.95),
+  s("~ ~ ~ ~ ~ ~ ~ ~ cp ~ ~ ~ ~ ~ ~ ~").bank("RolandTR808").room(.25),
+  s("hh hh hh hh hh hh [hh hh] hh hh hh hh hh hh hh [hh hh] hh").bank("RolandTR808").gain(.35),
+  s("~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ ~ oh ~").bank("RolandTR808").gain(.3),
+  n("<0 0 5 4>").scale("C2:minor").s("sine").shape(.35).gain(.5),
+  n("<[0,2,4] [0,2,4] [5,7,9] [4,6,8]>").scale("C4:minor").s("gm_choir_aahs").attack(.2).release(1).room(.6).gain(.16),
+  n("7@2 ~ 9 7@2 4 ~ 2@2 4 ~ 0@3 ~").scale("C5:minor").s("gm_marimba").delay(.3).room(.4).gain(.35)
 )`,
   },
   {
@@ -4627,12 +4635,10 @@ stack(
     bpm: 70,
     code: `setcps(70/60/4)
 stack(
-  note("<[c3,g3,e4] [a2,e3,c4] [f2,c3,a3] [g2,d3,b3]>").slow(2)
-    .s("sawtooth").lpf(sine.range(400, 1200).slow(16))
-    .attack(1).release(2).room(.9).gain(.3),
-  note("e5 ~ g5 ~ b5 ~ ~ ~").degradeBy(.3)
-    .s("sine").delay(.6).room(.9).gain(.15),
-  note("<c2 a1 f1 g1>").slow(2).s("sine").gain(.4)
+  n("<[0,2,4,6] [5,7,9,11] [3,5,7,9] [4,6,8,10]>").slow(2).scale("C3:major").s("gm_string_ensemble_1").attack(1.5).release(3).lpf(sine.range(600, 1600).slow(16)).room(.9).gain(.3),
+  n("7@3 ~ 9@2 ~@2 11@4 ~@4, ~@6 4@6 ~@4").slow(4).scale("C4:major").s("sine").delay(.6).room(.9).gain(.18),
+  n("<0 5 3 4>").slow(2).scale("C2:major").s("sine").gain(.45),
+  s("hh*8").bank("RolandTR808").degradeBy(.5).room(.6).gain(.12)
 )`,
   },
   {
@@ -4641,14 +4647,13 @@ stack(
     bpm: 115,
     code: `setcps(115/60/4)
 stack(
-  s("bd*4").bank("RolandTR909"),
-  s("~ sd ~ sd").bank("RolandTR909").gain(.7),
+  s("bd*4").bank("RolandTR909").gain(.9),
+  s("~ cp ~ cp").bank("RolandTR909").gain(.6),
   s("[~ oh]*4").bank("RolandTR909").gain(.35),
-  note("e1 e2 ~ e1 g1 ~ a1 b1")
-    .s("sawtooth").lpf(700).decay(.15).sustain(0).gain(.6),
-  note("<[e3,g3,b3,d4] [a3,c#4,e4,g4]>")
-    .struct("~ x ~ x ~ x ~ x")
-    .s("square").lpf(2000).decay(.08).sustain(0).gain(.3)
+  s("hh*16").bank("RolandTR909").gain("[.22 .1]*8"),
+  n("0 7 ~ 0 5 ~ 3 4").scale("E1:dorian").s("gm_electric_bass_finger").gain(.75),
+  n("<[0,2,4,6] [3,5,7,9]>").struct("~ x ~ x ~ x x ~").scale("E3:dorian").s("gm_electric_guitar_clean").decay(.08).sustain(0).gain(.4),
+  n("~@6 4 5 7@3 5 4 2@2 0").scale("E4:dorian").s("gm_string_ensemble_1").release(.4).room(.5).gain(.3)
 )`,
   },
   {
@@ -4657,10 +4662,11 @@ stack(
     bpm: 140,
     code: `setcps(140/60/4)
 stack(
-  s("bd ~ sd ~, hh*8").bank("RolandTR808").crush(4).gain(.6),
-  note("<[c4 e4 g4 c5 g4 e4 c4 e4] [a3 c4 e4 a4 e4 c4 a3 c4] [f3 a3 c4 f4 c4 a3 f3 a3] [g3 b3 d4 g4 d4 b3 g3 b3]>")
-    .s("square").decay(.1).sustain(0).gain(.3),
-  note("<c2 a1 f1 g1>*4").s("triangle").gain(.6)
+  s("bd ~ sd ~").bank("RolandTR808").crush(4).gain(.6),
+  s("hh*8").bank("RolandTR808").crush(4).gain(.35),
+  n("<[0 2 4 7]*4 [5 7 9 12]*4 [3 5 7 10]*4 [4 6 8 11]*4>").scale("C4:major").s("square").decay(.08).sustain(0).gain(.2),
+  n("<[0 7]*4 [5 12]*4 [3 10]*4 [4 11]*4>").scale("C2:major").s("triangle").gain(.55),
+  n("7@2 9 11@2 9 7@3 ~ 4@2 5 7@4 ~@2 9@2 11 12@4 11 9@2 7@3").slow(2).scale("C5:major").s("square").lpf(3000).delay(.2).gain(.22)
 )`,
   },
 ];
