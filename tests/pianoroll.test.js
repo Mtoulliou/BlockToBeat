@@ -44,6 +44,12 @@ module.exports = async ({ url, check }) => {
   // tête de lecture : seulement dans la ligne du tour en cours, et elle avance
   const h1 = await p.$$eval('.roll-head.is-here', x => x.length + ':' + x[0].style.left); await p.waitForTimeout(300); const h2 = await p.$eval('.roll-head.is-here', x => x.style.left);
   check(h1.startsWith('1:') && h1.split(':')[1] !== h2, 'tête de lecture visible dans une seule ligne, elle avance');
+  // Zoomer : le bloc prend toute la largeur libre
+  await p.mouse.move(500, 300); await p.keyboard.down('Control'); await p.mouse.wheel(0, 600); await p.keyboard.up('Control'); await p.waitForTimeout(150);
+  const z0 = await p.evaluate(() => +/scale\(([\d.]+)\)/.exec(document.querySelector('#canvas').style.transform)[1]);
+  await p.click('.b-n .b-key'); await p.click('[data-ab="zoom"]'); await p.waitForTimeout(150);
+  const z1 = await p.evaluate(() => ({ z: +/scale\(([\d.]+)\)/.exec(document.querySelector('#canvas').style.transform)[1], left: document.querySelector('.roll').getBoundingClientRect().left, pal: document.querySelector('#palette').getBoundingClientRect().right }));
+  check(z1.z > z0 && Math.abs(z1.left - z1.pal - 24) < 3, 'Zoomer cadre les lignes de notes sur toute la largeur libre (zoom ' + z0 + ' → ' + z1.z.toFixed(2) + ')');
   check(!p.errors.length, 'aucune erreur JS ' + p.errors.join(' ')); await p.close2();
   // au doigt sur un téléphone
   const t = await openApp(url, { project: oneBlock(melo([{ t: 0, d: .25, v: '0' }], 1)), viewport: { width: 390, height: 844 }, touch: true });
