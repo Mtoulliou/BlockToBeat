@@ -101,7 +101,8 @@ Repères (cherche le nom dans le fichier).
 - « Basse 808 » dans le menu Timbre : `is808`, `apply808`, `timbreOptions` (sinus dans le grave + decay, sustain 0, shape).
 
 ### Mélodie libre et piano roll (#46, refonte du REC, en cours)
-- **Tous les blocs Mélo sont en mélodie libre** : `b.notes = [{t, d, v}]` (début et durée en tours depuis le début de la phrase, `v` = degré ou accord) et `b.len` (phrase de 1 à 16 tours). `isRoll(b)`. Les anciens blocs en cases (`b.lines`) sont convertis par `toRoll` / `rollProject` au chargement, à l'import, pour les démos, à l'ouverture d'un projet de la Library, à la création d'un bloc et à la fin d'une prise REC (le REC écrit encore en cases pendant la prise, en attendant l'étape 4). Un `.slow(k)` entier devient une phrase k fois plus longue.
+- **Tous les blocs Mélo sont en mélodie libre** : `b.notes = [{t, d, v}]` (début et durée en tours depuis le début de la phrase, `v` = degré ou accord) et `b.len` (phrase de 1 à 16 tours). `isRoll(b)`. Les anciens blocs en cases (`b.lines`) sont convertis par `toRoll` / `rollProject` au chargement, à l'import, pour les démos, à l'ouverture d'un projet de la Library, à la création d'un bloc et pour le REC, qui écrit directement en notes pendant la prise. Un `.slow(k)` entier devient une phrase k fois plus longue.
+- **Affichage en lignes, comme avant** : une ligne par tour, numérotée (`rollHTML`, `rollRowSegs`). Toucher le numéro sélectionne la ligne (`sel.k === 'line'`), avec Supprimer, Vider, Dupliquer (`rollRowOp`). Une note qui passe d'un tour à l'autre se dessine en deux morceaux. Les pads de l'onglet Notes ajoutent dans la ligne sélectionnée.
 - Code Strudel : `rollMini` écrit chaque voix en `note@durée` (`~` silence, `[0,2,4]` accord, voix séparées par `,`), plus `.slow(len)`. Import : l'ancien lecteur (cases) d'abord, car il gère `add`, `arp`, `struct`… ; s'il perd quelque chose (voix superposées, durées fines, plus de 32 pas), `rollFromMini` prend le relais. Un `n("… , …")` reste un seul bloc. Aller-retour vérifié par le vrai bouton Importer sur toutes les démos.
 - Son : `scheduleRoll`. Tête de lecture et notes qui s'allument : `rollIdx` (construit par `indexCanvas`), mis à jour dans `frame`.
 - Piano roll compact (`rollHTML`) : une bande par voix (`rollLanes`, calculées, non stockées) + une bande pointillée pour superposer une voix. Grille : 320 px par tour (`ROLL_CYCLE_PX`), aimant `rollSnap(b)` (1/16 par défaut). Gestes (`startRoll`, `rollMove`, `rollEnd`) : toucher une note = son menu (`openNotePicker` : hauteur en notes ou accords, durée, dupliquer, supprimer), glisser une note = la déplacer, glisser sa poignée = changer sa durée, toucher un vide = ajouter une note d'un pas. Menu « tours » dans l'en-tête = longueur de la phrase. « Ligne » (palette ou glisser) = un tour de plus. Les pads de l'onglet Notes ajoutent les notes à la suite (`rollPaletteTap`).
@@ -158,22 +159,21 @@ Repères (cherche le nom dans le fichier).
 - Avec beaucoup de blocs, la lecture reste lourde : il reste le coût de création des sons (voir #33 et la PR #35).
 - Les démos sont tirées au hasard : dans les tests, fixe `Math.random` (voir section 8).
 
-## 8. Tests
+## 8. Tests (obligatoire)
 
-Les tests ne sont pas encore rangés dans le dépôt (#26). En attendant, on vérifie chaque changement avec **Playwright** (Chromium, et Firefox quand c'est utile), sur la page servie en local (`python3 -m http.server` à la racine) ou sur la version dev.
+**Chaque ajout ou correction arrive avec son test**, dans la même branche, et tous les tests passent avant de fusionner dans `dev`. Un test qui passe aussi sur l'ancien code ne prouve rien : vérifie qu'il échoue sans ta modification.
 
-- Teste à 380 × 760 (téléphone) et à une largeur d'ordinateur.
-- L'écran `#soundHint` capte les clics quand le son est bloqué. Soit tu lances Chromium avec `--autoplay-policy=no-user-gesture-required`, soit tu le fais disparaître d'abord : `document.getElementById('soundHint').dispatchEvent(new PointerEvent('pointerdown', {bubbles:true}))`.
-- Pour une démo fixe : `page.addInitScript(() => { let s = 3; Math.random = () => (s = (s * 16807) % 2147483647) / 2147483647; })`.
-- Pour tester sur un projet précis : écris-le dans `localStorage` (clé `blocktobeat-poc-1`), recharge, puis touche ↶ (`#undo`) pour remplacer la démo par ce projet.
-- Compare avant et après : un test qui passe aussi sur l'ancien code ne prouve rien.
+- Les tests sont dans `tests/`, un fichier par sujet (`*.test.js`). Ils lancent l'app dans de vrais navigateurs avec Playwright : tests des fonctions (via `window.BTB._roll`) et tests de ce que fait l'utilisateur (toucher, glisser, REC, import, son).
+- Lancer : `npm install` puis `npx playwright install chromium firefox` (une seule fois), puis **`npm test`** (tous) ou `node tests/run.js pianoroll` (un seul fichier). `tests/run.js` sert le site en local tout seul.
+- Écrire un test : un fichier `tests/<sujet>.test.js` qui exporte `async ({ url, check }) => { … }` ; `check(condition, 'ce qui est vérifié')` affiche OK ou ÉCHEC. Outils communs dans `tests/lib.js` : `openApp(url, {project, seed, viewport, touch, sound, browser, init})` (ouvre l'app, enlève l'écran de lancement, charge un projet), `melo`, `oneBlock`, `notesOf`, `fmtNotes`, `zoomOn`, `drag`.
+- Fichiers actuels : `app` (vérification générale, Chromium et Firefox), `roll-modele` (conversion, écriture et relecture Strudel, démos), `import` (aller-retour par le vrai bouton Importer), `son` (instants exacts des notes), `pianoroll` (lignes, gestes, menus, pads, tête de lecture, au doigt), `rec` (prise exacte, pas de notes fantômes, piano roll pendant la prise).
+- Pièges : l'écran `#soundHint` capte les clics (`openApp` s'en charge) ; les démos sont tirées au hasard (option `seed`) ; sur la version dev en ligne, la clé du projet finit par `-dev`.
 - Dans la PR, dis ce qui a été testé, et ce qui ne peut l'être que sur un vrai téléphone.
 
 ## 9. Issues ouvertes (au moment d'écrire ce fichier)
 
 - #20 Library : enregistrer, renommer et ranger ses projets en dossiers (Matteo, chantier long).
 - #25 Points à vérifier sur un vrai téléphone.
-- #26 Tests unitaires.
 - #31 Langage de code musical sans licence contraignante (à voir avec Jules).
 
 ## 10. Idées proposées mais pas validées (demander avant)
