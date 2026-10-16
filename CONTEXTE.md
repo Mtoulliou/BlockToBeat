@@ -100,6 +100,13 @@ Repères (cherche le nom dans le fichier).
 - Menu d'un pas : `openCellPicker`, avec le choix Notes / Accords (`cellChord`).
 - « Basse 808 » dans le menu Timbre : `is808`, `apply808`, `timbreOptions` (sinus dans le grave + decay, sustain 0, shape).
 
+### Mélodie libre (#46, refonte du REC, en cours)
+- Un bloc Mélo peut décrire ses notes par leur début et leur durée exacts : `b.notes = [{t, d, v}]` (en tours depuis le début de la phrase, `v` = degré ou accord) et `b.len` (longueur de la phrase en tours). `isRoll(b)` le reconnaît. Les blocs en cases (`b.lines`) se convertissent sans perte (`linesToRoll`).
+- Code Strudel : `rollMini` écrit chaque voix en `note@durée` (`~` silence, `[0,2,4]` accord, voix séparées par `,`), plus `.slow(len)` ; les durées sont ramenées à la plus petite grille possible (192 pas par tour au plus). `rollFromMini` relit cette écriture (et `_ < > * ! @` décimaux). Aller-retour vérifié sur toutes les démos.
+- Son : `scheduleRoll` (début exact de chaque note, mode Morceau, `rev`, `jux`, `degradeBy`). Affichage : `rollHTML` (piano roll compact, lecture seule pour l'instant).
+- Les fonctions d'édition qui lisent `b.lines` ne gèrent pas encore les blocs en notes : c'est l'étape 2.
+- Tests : `window.BTB._roll` expose `fromLines`, `toMini`, `parse`, `code`.
+
 ### Moteur audio (Web Audio, pas le vrai moteur Strudel)
 - `scheduleRange` : planificateur à anticipation, appelé par `tick` toutes les 25 ms. Gère notes tenues, jux, late, mode Morceau.
 - `blockOut` / `buildChain` : chaînes d'effets mises en cache par bloc.

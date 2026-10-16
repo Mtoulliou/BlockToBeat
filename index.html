@@ -194,6 +194,11 @@ body.is-playing .edge-light{opacity:1}
 #exportBtn.busy svg{animation:expbusy .9s ease-in-out infinite}
 @keyframes expbusy{50%{transform:translateY(3px)}}
 .s-lines{display:flex;flex-direction:column;gap:4px;padding:2px 0}
+.roll{position:relative;display:flex;flex-direction:column;gap:4px;padding:6px 0;margin-left:8px}
+.roll-lane{position:relative;height:30px;border-radius:9px;background:rgba(30,18,56,.55)}
+.roll-empty{display:flex;align-items:center;padding:0 10px;color:var(--note-2);font-size:12px;opacity:.7}
+.roll-bar{position:absolute;top:0;bottom:0;width:1px;background:rgba(205,182,255,.25)}
+.roll-note{position:absolute;top:3px;height:24px;box-sizing:border-box;padding:0 6px;border-radius:7px;background:rgb(var(--heat));color:#170A13;font-family:var(--f-body);font-weight:800;font-size:11.5px;line-height:24px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
 .s-line{display:flex;align-items:center;gap:4px}
 .s-ln{flex:none;align-self:stretch;min-width:18px;padding:0 3px;border:0;border-radius:6px;background:transparent;color:inherit;font-family:var(--f-mono);font-size:10px;font-weight:800;opacity:.6;text-align:center;cursor:pointer}
 .s-ln.is-sel{opacity:1;background:var(--fg);color:var(--sound-ink)}
@@ -1136,7 +1141,8 @@ function nHTML(st, b, z){
       '</div>'+ fxHTML(st, b)+
     '</div>'+
     '<div class="n-mid" style="z-index:2"><div class="spine"></div><div class="mouth" data-drop="mouth"'+attrs({s:st.id, b:b.id})+'>';
-  b.lines.forEach(function(line, li){
+  if (isRoll(b)) h += rollHTML(st, b);
+  else b.lines.forEach(function(line, li){
     h += '<div class="b-line'+(selIs('line',st.id,b.id,li)?' is-sel':'')+'" data-drop="line" data-src="line" style="z-index:'+(40-li)+'"'+attrs({s:st.id, b:b.id, l:li, lkey:b.id+':'+li})+'>'+
       '<button type="button" class="l-grip" data-src="line"'+attrs({s:st.id, b:b.id, l:li})+' aria-label="Ligne '+(li+1)+' : sélectionner ou glisser">'+(li+1)+'</button>'+
       slotHTML(st, b, li, line)+
@@ -1144,6 +1150,23 @@ function nHTML(st, b, z){
   });
   h += '</div></div><div class="n-foot" style="z-index:1"><span class="nub"></span></div></div>';
   return h;
+}
+/* Piano roll compact (#46) : une bande par voix, chaque note est une barre de sa durée (lecture seule pour l'instant) */
+var ROLL_CYCLE_PX = 320;
+function rollHTML(st, b){
+  var len = rollLen(b), W = len*ROLL_CYCLE_PX, h = '<div class="roll" style="width:'+W+'px">';
+  for (var c=1;c<len;c++) h += '<i class="roll-bar" style="left:'+(c*ROLL_CYCLE_PX)+'px"></i>';
+  rollVoices(b.notes).forEach(function(vn){
+    h += '<div class="roll-lane">';
+    vn.forEach(function(n){
+      var chord = String(n.v).indexOf(',') > -1, ci = chord ? chordInfo(b, n.v) : null;
+      var label = chord ? (ci.name || n.v) : degName(b, +n.v).replace(/\d+$/, '');
+      h += '<span class="roll-note" style="left:'+(n.t/len*W)+'px;width:'+Math.max(6, n.d/len*W - 2)+'px;--heat:'+heatRGB(chord ? String(n.v).split(',')[0] : n.v)+'" title="'+esc(chord ? ci.notes : degName(b, +n.v))+'">'+esc(label)+'</span>';
+    });
+    h += '</div>';
+  });
+  if (!b.notes.length) h += '<div class="roll-lane roll-empty">Phrase vide</div>';
+  return h + '</div>';
 }
 function stackHTML(st){
   var z = 60;
@@ -1272,6 +1295,10 @@ function blockCode(b){
   if (b.type==='s'){
     if (b.alt && b.alt.length) return 's("<'+sLines(b).map(function(l){ return l.length===1 ? l[0] : '['+l.join(' ')+']'; }).join(' ')+'>")' + fxChain(b);
     return 's("'+b.steps.join(' ')+'")' + fxChain(b);
+  }
+  if (isRoll(b)){
+    var rl = rollLen(b);
+    return 'n("'+rollMini(b.notes, rl)+'")'+(rl > 1 ? '.slow('+rl+')' : '')+'\n  .scale("'+b.root+':'+b.scale+'")' + (b.synth && b.synth!=='triangle' ? '.s("'+b.synth+'")' : '') + fxChain(b);
   }
   var lines = b.lines.filter(function(l){ return l.length; });
   var tk = function(t){ return String(t).indexOf(',') > -1 ? '['+t+']' : t; };
@@ -1875,7 +1902,7 @@ function parseStrudel(code){
 }
 function estHeight(st){
   var h = 60;
-  st.blocks.forEach(function(b){ h += b.type==='s' ? 56 : b.type==='code' ? 76 : 104 + b.lines.length*50; });
+  st.blocks.forEach(function(b){ h += b.type==='s' ? 56 : b.type==='code' ? 76 : 104 + (isRoll(b) ? Math.max(1, rollVoices(b.notes).length)*34 : b.lines.length*50); });
   return h + (st.blocks.length ? 0 : 50);
 }
 
@@ -2174,6 +2201,135 @@ function chordInfo(b, v){
   }
   return {name:name, notes:pcs.map(function(p){ return NOTE_FR[p]; }).join(' ')};
 }
+/* ---------- Mélodie libre (#46) : un bloc Mélo peut décrire ses notes par leur début et leur durée exacts ----------
+   b.notes = [{t, d, v}] : t = début, d = durée, en tours depuis le début de la phrase ; v = degré ou accord "0,2,4".
+   b.len = longueur de la phrase en tours. Les blocs en cases (b.lines) se convertissent sans perte (linesToRoll).
+   En Strudel : n("0@3 ~ 2@4, ~@2 [0,2,4]@6").slow(2) : @ = durée, ~ = silence, ", " = voix superposées. */
+var ROLL_EPS = 1e-6, ROLL_MAX_TICKS = 192;
+function isRoll(b){ return !!b && b.type==='n' && Array.isArray(b.notes); }
+function rollLen(b){ return Math.max(1, Math.round(b.len || 1)); }
+function linesToRoll(lines){
+  var notes = [];
+  (lines || []).forEach(function(line, k){
+    var N = line.length;
+    for (var i=0;i<N;i++){
+      var v = line[i]; if (v==='~' || v==='_') continue;
+      var h = 0; while (i + h + 1 < N && line[i + h + 1]==='_') h++;
+      notes.push({t:k + i/N, d:(h + 1)/N, v:String(v)});
+    }
+  });
+  return {notes:notes, len:Math.max(1, (lines || []).length)};
+}
+function rollOf(b){ return isRoll(b) ? {notes:b.notes, len:rollLen(b)} : linesToRoll(b.lines); }
+function isNear(x){ return Math.abs(x - Math.round(x)) < 1e-6; }
+/* plus petite grille (en pas par tour) où tombent tous les débuts et fins ; au-delà de 192, on arrondit */
+function rollTicks(notes){
+  for (var D=1; D<=ROLL_MAX_TICKS; D++) if (notes.every(function(n){ return isNear(n.t*D) && isNear(n.d*D); })) return D;
+  return ROLL_MAX_TICKS;
+}
+function mergeChord(a, b){
+  return String(a).split(',').concat(String(b).split(',')).filter(function(x, i, all){ return all.indexOf(x)===i; }).sort(function(x, y){ return x - y; }).join(',');
+}
+/* notes de même début et même durée = un accord ; puis chaque note va dans la première voix libre */
+function rollVoices(notes){
+  var byKey = {}, list = [];
+  notes.slice().sort(function(a, b){ return a.t - b.t || a.d - b.d; }).forEach(function(n){
+    var key = Math.round(n.t*1e6) + ':' + Math.round(n.d*1e6);
+    if (byKey[key]) byKey[key].v = mergeChord(byKey[key].v, n.v);
+    else { byKey[key] = {t:n.t, d:n.d, v:String(n.v)}; list.push(byKey[key]); }
+  });
+  var voices = [];
+  list.forEach(function(n){
+    var vo = null;
+    for (var i=0;i<voices.length;i++) if (voices[i].end <= n.t + ROLL_EPS){ vo = voices[i]; break; }
+    if (!vo){ vo = {end:0, notes:[]}; voices.push(vo); }
+    vo.notes.push(n); vo.end = n.t + n.d;
+  });
+  return voices.map(function(vo){ return vo.notes; });
+}
+function rollMini(notes, len){
+  if (!notes.length) return '~';
+  var D = rollTicks(notes), total = Math.round(len*D);
+  return rollVoices(notes).map(function(vn){
+    var segs = [], cur = 0;
+    vn.forEach(function(n){
+      var a = Math.max(cur, Math.round(n.t*D)), e = Math.min(total, Math.max(a + 1, Math.round((n.t + n.d)*D)));
+      if (a >= total) return;
+      if (a > cur) segs.push(['~', a - cur]);
+      segs.push([n.v, e - a]); cur = e;
+    });
+    if (cur < total) segs.push(['~', total - cur]);
+    var g = segs.reduce(function(g, x){ return gcd(g, x[1]); }, 0) || 1;
+    return segs.map(function(x){
+      var w = x[1]/g, tok = String(x[0]).indexOf(',') > -1 ? '['+x[0]+']' : String(x[0]);
+      return w === 1 ? tok : tok + '@' + w;
+    }).join(' ');
+  }).join(', ');
+}
+/* Lecture d'une mini-notation de notes vers {notes, len}. Gère ~ _ @ * ! [ ] < > et les voix « , ».
+   Renvoie null si un élément n'est pas un degré ou un silence (le reste de l'import s'en charge). */
+function rollFromMini(src, slow){
+  var i = 0, ok = true, altLens = [];
+  function ws(){ while (i < src.length && /\s/.test(src[i])) i++; }
+  function num(){ var m = /^-?\d+(\.\d+)?/.exec(src.slice(i)); if (!m){ ok = false; return 1; } i += m[0].length; return +m[0]; }
+  function stack(end){
+    var parts = [seq(end)];
+    while (src[i] === ','){ i++; parts.push(seq(end)); }
+    return parts;
+  }
+  function seq(end){
+    var steps = [];
+    for (;;){
+      ws();
+      if (i >= src.length || src[i] === end || src[i] === ',') break;
+      if (src[i] === '_'){ i++; if (steps.length) steps[steps.length - 1].w += 1; continue; }
+      var st = atom(); if (!ok) return steps;
+      for (;;){
+        if (src[i] === '@'){ i++; st.w = num(); }
+        else if (src[i] === '*'){ i++; st.fast = (st.fast || 1) * num(); }
+        else if (src[i] === '!'){ i++; var r = Math.round(num()); for (var k=1;k<r;k++) steps.push({a:st.a, w:st.w, fast:st.fast}); }
+        else break;
+      }
+      steps.push(st);
+    }
+    return steps;
+  }
+  function atom(){
+    var c = src[i];
+    if (c === '['){ i++; var inner = stack(']'); if (src[i] !== ']') ok = false; i++; return {a:{stack:inner}, w:1}; }
+    if (c === '<'){ i++; var alt = seq('>'); if (src[i] !== '>') ok = false; i++; altLens.push(alt.length); return {a:{alt:alt}, w:1}; }
+    var m = /^(~|-?\d+)/.exec(src.slice(i));
+    if (!m){ ok = false; i++; return {a:{rest:true}, w:1}; }
+    i += m[0].length;
+    return {a: m[0] === '~' ? {rest:true} : {v:m[0]}, w:1};
+  }
+  var top = stack(null); ws();
+  if (!ok || i < src.length) return null;
+  var period = Math.min(16, altLens.reduce(function(p, n){ return lcm(p, Math.max(1, n)); }, 1));
+  var evs = [];
+  function play(a, t0, span, cyc){
+    if (a.rest) return;
+    if (a.v != null){ evs.push({t:t0, d:span, v:a.v}); return; }
+    if (a.alt){ if (a.alt.length){ var s = a.alt[((cyc % a.alt.length) + a.alt.length) % a.alt.length]; step(s, t0, span, cyc); } return; }
+    if (a.stack) a.stack.forEach(function(sq){ playSeq(sq, t0, span, cyc); });
+  }
+  function step(s, t0, span, cyc){
+    var f = s.fast || 1;
+    for (var r=0;r<f;r++) play(s.a, t0 + span*r/f, span/f, cyc*f + r);
+  }
+  function playSeq(sq, t0, span, cyc){
+    var W = sq.reduce(function(x, s){ return x + s.w; }, 0) || 1, cur = t0;
+    sq.forEach(function(s){ var d = span*s.w/W; step(s, cur, d, cyc); cur += d; });
+  }
+  for (var c=0;c<period;c++) top.forEach(function(sq){ playSeq(sq, c, 1, c); });
+  var k = Math.max(1, slow || 1), notes = [];
+  evs.forEach(function(e){
+    var t = e.t*k, d = e.d*k, same = notes.filter(function(n){ return Math.abs(n.t - t) < ROLL_EPS && Math.abs(n.d - d) < ROLL_EPS; })[0];
+    if (same) same.v = mergeChord(same.v, e.v); else notes.push({t:t, d:d, v:String(e.v)});
+  });
+  notes.sort(function(a, b){ return a.t - b.t || a.d - b.d; });
+  return {notes:notes, len:period*k};
+}
 /* ---------- Voix des instruments ---------- */
 function loopNoise(t, life){ var s = ctx.createBufferSource(); s.buffer = noiseBuf; s.loop = true; s.start(t, Math.random()*1.5); s.stop(t + life); return freeOnEnd(s); }
 function vibrato(oscs, t, life, cents, rate, delay){
@@ -2365,6 +2521,7 @@ function scheduleRange(a, z){
       var b0 = (c0 - late)*sp, b1 = (c1 - late)*sp;
       var passes = F.jux ? [{rev:!!F.rev, pan:-.85}, {rev:!F.rev, pan:.85}] : [{rev:!!F.rev, pan:null}];
       passes.forEach(function(pass){ var rev = pass.rev;
+      if (isRoll(b)){ scheduleRoll(st, b, F, sp, late, b0, b1, cd, pass); return; }
       for (var k=Math.floor(b0); k<=Math.floor(b1); k++){
         if (!soloAllows(st, b)) continue;
         var song = songOn(), sa = song ? songAt(k/sp) : null, sk = sa && sa.map[st.id];
@@ -3734,12 +3891,34 @@ window.addEventListener('keyup', function(e){ if (rec.on && e.key) recRelease('k
 /* ---------- Export audio : rendu hors ligne du morceau, en .wav ---------- */
 function gcd(a, b){ return b ? gcd(b, a % b) : a; }
 function lcm(a, b){ return a / gcd(a, b) * b; }
+/* Notes d'un bloc en mélodie libre : chaque tour joue les notes qui commencent dans ce tour de la phrase.
+   En mode Morceau, la phrase repart au début de la section. rev retourne chaque tour, comme Strudel. */
+function scheduleRoll(st, b, F, sp, late, b0, b1, cd, pass){
+  var len = rollLen(b);
+  for (var k=Math.floor(b0); k<=Math.floor(b1); k++){
+    if (!soloAllows(st, b)) continue;
+    var song = songOn(), sa = song ? songAt(k/sp) : null, sk = sa && sa.map[st.id];
+    if (song && !sk) continue;
+    var anchor = song ? Math.round(sk.start*sp) : 0, ph = (((k - anchor) % len) + len) % len;
+    b.notes.forEach(function(n){
+      if (n.t < ph - ROLL_EPS || n.t >= ph + 1 - ROLL_EPS) return;
+      var f = n.t - ph, d = n.d;
+      if (pass.rev) f = Math.max(0, 1 - f - Math.min(d, 1));
+      var pos = k + f;
+      if (pos < b0 || pos >= b1) return;
+      if (F.degradeBy && Math.random() < val(F.degradeBy, pos)) return;
+      var t = startT + (pos/sp + late)*cd, vo = blockOut(b, pos, pass.pan), du = d*cd/sp*.92;
+      String(n.v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, du, vo, pos); });
+      if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type});
+    });
+  }
+}
 function exportCycles(){
   if (songOn() && songHas()) return songTotal();
   var L = 1;
   P.stacks.forEach(function(st){ if (st.muted) return; st.blocks.forEach(function(b){
     if (b.muted || b.type==='code') return;
-    var sp = speedOf(b), n = b.type==='n' ? b.lines.length : 1;
+    var sp = speedOf(b), n = isRoll(b) ? rollLen(b) : b.type==='n' ? b.lines.length : 1;
     var per = Math.max(1, Math.round(n / Math.min(1, sp)));
     (b.fx || []).forEach(function(f){ if (f.seq) per = lcm(per, f.seq.length); });
     L = Math.min(32, lcm(L, per));
@@ -4278,7 +4457,8 @@ window.BTB = {
   setLibId: function(id){ if (id) P.libId = id; else delete P.libId; persist(); renderAll(); },
   onChange: function(fn){ libListeners.push(fn); },        /* appelé après chaque enregistrement du projet */
   showPage: function(k){ var b = document.querySelector('#nav [data-nav="'+k+'"]'); if (b) b.click(); },
-  toast: function(m, ms){ toast(m, ms); }
+  toast: function(m, ms){ toast(m, ms); },
+  _roll: {fromLines: linesToRoll, toMini: rollMini, parse: rollFromMini, code: blockCode}   /* pour les tests de la mélodie libre (#46) */
 };
 $('#libSave').addEventListener('click', function(){
   if (P.libId){ toast('Ce projet s’enregistre automatiquement dans la Library.'); return; }
