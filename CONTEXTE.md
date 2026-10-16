@@ -100,11 +100,11 @@ Repères (cherche le nom dans le fichier).
 - Menu d'un pas : `openCellPicker`, avec le choix Notes / Accords (`cellChord`).
 - « Basse 808 » dans le menu Timbre : `is808`, `apply808`, `timbreOptions` (sinus dans le grave + decay, sustain 0, shape).
 
-### Mélodie libre (#46, refonte du REC, en cours)
-- Un bloc Mélo peut décrire ses notes par leur début et leur durée exacts : `b.notes = [{t, d, v}]` (en tours depuis le début de la phrase, `v` = degré ou accord) et `b.len` (longueur de la phrase en tours). `isRoll(b)` le reconnaît. Les blocs en cases (`b.lines`) se convertissent sans perte (`linesToRoll`).
-- Code Strudel : `rollMini` écrit chaque voix en `note@durée` (`~` silence, `[0,2,4]` accord, voix séparées par `,`), plus `.slow(len)` ; les durées sont ramenées à la plus petite grille possible (192 pas par tour au plus). `rollFromMini` relit cette écriture (et `_ < > * ! @` décimaux). Aller-retour vérifié sur toutes les démos.
-- Son : `scheduleRoll` (début exact de chaque note, mode Morceau, `rev`, `jux`, `degradeBy`). Affichage : `rollHTML` (piano roll compact, lecture seule pour l'instant).
-- Les fonctions d'édition qui lisent `b.lines` ne gèrent pas encore les blocs en notes : c'est l'étape 2.
+### Mélodie libre et piano roll (#46, refonte du REC, en cours)
+- **Tous les blocs Mélo sont en mélodie libre** : `b.notes = [{t, d, v}]` (début et durée en tours depuis le début de la phrase, `v` = degré ou accord) et `b.len` (phrase de 1 à 16 tours). `isRoll(b)`. Les anciens blocs en cases (`b.lines`) sont convertis par `toRoll` / `rollProject` au chargement, à l'import, pour les démos, à l'ouverture d'un projet de la Library, à la création d'un bloc et à la fin d'une prise REC (le REC écrit encore en cases pendant la prise, en attendant l'étape 4). Un `.slow(k)` entier devient une phrase k fois plus longue.
+- Code Strudel : `rollMini` écrit chaque voix en `note@durée` (`~` silence, `[0,2,4]` accord, voix séparées par `,`), plus `.slow(len)`. Import : l'ancien lecteur (cases) d'abord, car il gère `add`, `arp`, `struct`… ; s'il perd quelque chose (voix superposées, durées fines, plus de 32 pas), `rollFromMini` prend le relais. Un `n("… , …")` reste un seul bloc. Aller-retour vérifié par le vrai bouton Importer sur toutes les démos.
+- Son : `scheduleRoll`. Tête de lecture et notes qui s'allument : `rollIdx` (construit par `indexCanvas`), mis à jour dans `frame`.
+- Piano roll compact (`rollHTML`) : une bande par voix (`rollLanes`, calculées, non stockées) + une bande pointillée pour superposer une voix. Grille : 320 px par tour (`ROLL_CYCLE_PX`), aimant `rollSnap(b)` (1/16 par défaut). Gestes (`startRoll`, `rollMove`, `rollEnd`) : toucher une note = son menu (`openNotePicker` : hauteur en notes ou accords, durée, dupliquer, supprimer), glisser une note = la déplacer, glisser sa poignée = changer sa durée, toucher un vide = ajouter une note d'un pas. Menu « tours » dans l'en-tête = longueur de la phrase. « Ligne » (palette ou glisser) = un tour de plus. Les pads de l'onglet Notes ajoutent les notes à la suite (`rollPaletteTap`).
 - Tests : `window.BTB._roll` expose `fromLines`, `toMini`, `parse`, `code`.
 
 ### Moteur audio (Web Audio, pas le vrai moteur Strudel)
