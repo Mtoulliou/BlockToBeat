@@ -14,7 +14,8 @@ const capture = () => {
   window.__src = []; const c = AudioContext.prototype.createBufferSource;
   AudioContext.prototype.createBufferSource = function(){
     const s = c.call(this), rec = { start: null, stop: Infinity }, st = s.start.bind(s), sp = s.stop.bind(s);
-    s.start = (t, ...a) => { if (s.buffer && s.buffer.duration > 1.5) { rec.start = t; window.__src.push(rec); } return st(t, ...a); };
+    /* seulement le son perso de 1,9 s : le bruit des percussions est aussi un tampon de 2 s, à ne pas compter */
+    s.start = (t, ...a) => { if (s.buffer && Math.abs(s.buffer.duration - 1.9) < .05) { rec.start = t; window.__src.push(rec); } return st(t, ...a); };
     s.stop = (t) => { rec.stop = Math.min(rec.stop, t); return sp(t); };
     return s;
   };
