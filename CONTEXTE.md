@@ -1,4 +1,4 @@
-# BlockToBeat : contexte du projet et règles de travail
+# Strudy : contexte du projet et règles de travail
 
 Ce fichier est **la référence commune de toute l'équipe** (humains et assistants Claude Code). `CLAUDE.md` l'importe : il est chargé à chaque session. Lis-le en entier avant de toucher au code. Quand une règle ou l'architecture change, mets ce fichier à jour dans la même branche que le changement.
 
@@ -6,9 +6,9 @@ Ce fichier est **la référence commune de toute l'équipe** (humains et assista
 
 ## 1. Le projet
 
-BlockToBeat rend le live coding musical accessible avec des blocs qui s'emboîtent, façon Scratch. On compose avec des blocs, le vrai code [Strudel](https://strudel.cc) s'écrit tout seul, et l'inverse marche aussi : on colle du code Strudel, il devient des blocs.
+Strudy rend le live coding musical accessible avec des blocs qui s'emboîtent, façon Scratch. On compose avec des blocs, le vrai code [Strudel](https://strudel.cc) s'écrit tout seul, et l'inverse marche aussi : on colle du code Strudel, il devient des blocs.
 
-- Ancien nom : Strudy.
+- Nom de l'app : **Strudy** (#48). Elle s'est appelée BlockToBeat : le dépôt, l'adresse du site et les clés de sauvegarde internes (`blocktobeat-…`) gardent cet ancien nom, pour ne casser ni les liens, ni les apps installées, ni les projets enregistrés. Ne les renomme pas.
 - Version publique : https://mtoulliou.github.io/BlockToBeat/
 - Version de test (branche `dev`) : https://mtoulliou.github.io/BlockToBeat/dev/
 - Dépôt : https://github.com/Mtoulliou/BlockToBeat
@@ -38,7 +38,7 @@ Toucher la zone de l'autre est permis pour un ajustement, mais **annonce-le d'ab
 
 - **Pas de build.** L'app est un site statique : `index.html` (HTML + CSS + JS, aucune dépendance sauf Google Fonts), `sw.js`, `manifest.webmanifest`, icônes à la racine (pas de dossier `icons/`).
 - **GitHub Pages par GitHub Actions** (`.github/workflows/pages.yml`) : à chaque push sur `main` ou `dev`, le workflow publie `main` à la racine et `dev` sous `/dev/`. Les déploiements passent chacun leur tour (`cancel-in-progress: false`) : deux déploiements du même commit qui s'annulent faisaient échouer la mise en ligne.
-- Le workflow renomme l'app dev « BlockToBeat (dev) » dans son manifeste : elle s'installe comme une app à part.
+- Le workflow renomme l'app dev « Strudy (dev) » dans son manifeste : elle s'installe comme une app à part.
 - **Service worker** (`sw.js`) : un cache par dossier (`VERSION@chemin`). La version principale ignore les requêtes vers `dev/`. La page est toujours redemandée au serveur (`cache: 'no-cache'`), sinon GitHub Pages la garde 10 minutes en cache et les mises à jour n'arrivent pas.
 - **`VERSION` est remplacée automatiquement au déploiement** par le numéro du commit. Ne l'incrémente jamais à la main.
 - Dev et main partagent la même origine, donc le même `localStorage`. La clé du projet prend le suffixe `-dev` sous `/dev/` : tester en dev n'écrase pas le projet de la version publique. Toute nouvelle clé de stockage doit suivre la même règle (voir `KEY` dans `index.html`).
