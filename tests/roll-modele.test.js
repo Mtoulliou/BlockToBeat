@@ -29,6 +29,11 @@ module.exports = async ({ url, check }) => {
       out.push([back && same(sort(back.notes), sort(want)), 'relecture de n("' + mini + '")' + (slow > 1 ? '.slow(' + slow + ')' : '')]);
     });
     out.push([R.parse('c4 e4', 1) === null, 'n("c4 e4") laissé à l\'ancien lecteur']);
+    // aimant : calage sur une grille, accords, durée minimale, fin de phrase
+    const raw = [{ t: .013, d: .2, v: '0' }, { t: .49, d: .1, v: '4' }, { t: .51, d: .08, v: '7' }, { t: .97, d: .02, v: '2' }];
+    out.push([same(sort(R.quantize(raw, 16, 1)), [{ t: 0, d: .1875, v: '0' }, { t: .5, d: .0625, v: '4,7' }, { t: .9375, d: .0625, v: '2' }]), 'aimant 1/16 : calage, notes ensemble = accord, note de fin gardée dans la phrase']);
+    out.push([same(sort(R.quantize([{ t: .32, d: .34, v: '0' }, { t: .68, d: .3, v: '2' }], 12, 1)), [{ t: 1 / 3, d: 1 / 3, v: '0' }, { t: 2 / 3, d: 1 / 3, v: '2' }]), 'aimant triolets']);
+    out.push([same(R.quantize(raw, 0, 1), raw), 'aimant libre : rien ne bouge']);
     return out;
   });
   r.forEach(([c, m]) => check(c, m));

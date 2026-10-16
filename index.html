@@ -1257,6 +1257,15 @@ viewport.addEventListener('wheel', function(e){
   if (e.ctrlKey || e.metaKey) zoomAt(e.clientX, e.clientY, V.z * Math.exp(-e.deltaY*0.01));
   else { V.tx -= e.deltaX; V.ty -= e.deltaY; applyView(); }
 }, {passive:false});
+/* Zoomer sur un bloc : ses lignes de notes prennent toute la largeur libre, pour les éditer au doigt (#46) */
+function zoomToBlock(bid){
+  var el = canvas.querySelector('.roll[data-b="'+bid+'"]') || canvas.querySelector('.nblk[data-b="'+bid+'"]'); if (!el) return;
+  var r = el.getBoundingClientRect(), a = freeArea();
+  var wx = (r.left - V.tx)/V.z, wy = (r.top - V.ty)/V.z, ww = r.width/V.z;
+  V.z = Math.max(ZMIN, Math.min(ZMAX, (a.r - a.l)/ww));
+  V.tx = a.l - wx*V.z; V.ty = a.t - wy*V.z; userMoved = true;
+  applyView();
+}
 function zoomStep(f){ var a = freeArea(); zoomAt((a.l+a.r)/2, (a.t+a.b)/2, V.z*f); userMoved = true; }
 viewport.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 
@@ -1352,6 +1361,7 @@ function nHTML(st, b, z){
           '<button type="button" class="pselect root-btn" data-act="rootpick"'+attrs({s:st.id, b:b.id})+' style="--heat:'+rootHeat(b.root)+'" aria-label="Note de départ : '+esc(rootFR(b.root))+'. Changer, du plus grave au plus aigu">'+esc(rootFR(b.root))+'</button>'+
           selectHTML(st, b, 'scale', Object.keys(SCALES).map(function(k){ return [k, SCALE_FR[k]]; }), b.scale, 'Gamme')+
           selectHTML(st, b, 'synth', timbreOptions(b), is808(b) ? '808' : b.synth, 'Timbre')+
+          (isRoll(b) ? selectHTML(st, b, 'snap', SNAP_OPTS, snapValue(b), 'Aimant') : '')+
           (isRoll(b) ? selectHTML(st, b, 'len', [1, 2, 4, 8, 16].concat([1, 2, 4, 8, 16].indexOf(rollLen(b)) < 0 ? [rollLen(b)] : []).sort(function(x, y){ return x - y; }).map(function(k){ return [String(k), k + ' tour' + (k > 1 ? 's' : '')]; }), String(rollLen(b)), 'Longueur de la phrase') : '')+
         '</div>'+
       '</div>'+ fxHTML(st, b)+
@@ -1371,7 +1381,33 @@ function nHTML(st, b, z){
    Toucher une note : son menu. La glisser : la déplacer. Glisser sa poignée : changer sa durée.
    Toucher un vide : ajouter une note. La bande du bas, vide, sert à superposer une autre voix. */
 var ROLL_CYCLE_PX = 320;
-function rollSnap(b){ var D = rollTicks(b.notes); return b.snap || (D <= 16 ? 16 : D <= 48 ? D : 16); }
+function rollSnap(b){
+  if (b.snap === 'off') return 32;   /* sans aimant, on édite quand même au 1/32 */
+  if (b.snap) return +b.snap;
+  var D = rollTicks(b.notes); return D <= 16 ? 16 : D <= 48 ? D : 16;
+}
+/* Aimant (#46) : cale les notes sur une grille (g pas par tour, 0 = libre). Deux notes qui tombent ensemble font un accord. */
+function rollQuantize(notes, g, len){
+  var out = [];
+  notes.forEach(function(n){
+    var t = n.t, d = n.d;
+    if (g > 0){ t = Math.round(n.t*g)/g; d = Math.max(1/g, Math.round((n.t + n.d)*g)/g - t); }
+    if (t > len - ROLL_EPS - (g > 0 ? 1/g : 0)) t = Math.max(0, len - (g > 0 ? 1/g : Math.min(d, len)));
+    d = Math.min(d, len - t);
+    var same = out.filter(function(o){ return Math.abs(o.t - t) < ROLL_EPS && Math.abs(o.d - d) < ROLL_EPS; })[0];
+    if (same) same.v = mergeChord(same.v, n.v); else out.push({t:t, d:d, v:String(n.v)});
+  });
+  return out;
+}
+/* Changer d'aimant repart de la prise brute, tant que les notes n'ont pas été retouchées à la main */
+function rollSetSnap(b, snap){
+  var src = b.raw && b.rawOf === JSON.stringify(b.notes) ? b.raw : JSON.parse(JSON.stringify(b.notes));
+  b.raw = src; b.snap = snap === 'off' ? 'off' : +snap;
+  b.notes = rollQuantize(src, b.snap === 'off' ? 0 : b.snap, rollLen(b));
+  b.rawOf = JSON.stringify(b.notes);
+}
+var SNAP_OPTS = [['off', 'Aimant : libre'], ['32', 'Aimant : 1/32'], ['16', 'Aimant : 1/16'], ['8', 'Aimant : 1/8'], ['12', 'Aimant : triolets']];
+function snapValue(b){ if (b.snap != null) return String(b.snap); var g = rollSnap(b); return g === 12 || g === 24 ? '12' : g === 32 ? '32' : '16'; }
 function rollLanes(notes){
   var order = notes.map(function(n, i){ return i; }).sort(function(x, y){ return notes[x].t - notes[y].t || notes[x].d - notes[y].d; }), lanes = [];
   order.forEach(function(i){
@@ -1526,7 +1562,8 @@ function renderActionBar(){
       '<button type="button" class="ab-btn" data-ab="mute">'+(b.muted?'Réactiver':'Couper le son')+'</button>'+
       (b.type!=='code' ? '<button type="button" class="ab-btn'+(solo && solo.id===b.id?' on':'')+'" data-ab="solo">Solo</button>' : '')+
       (b.type!=='code' ? '<button type="button" class="ab-btn" data-ab="clear"'+((isRoll(b) ? !b.notes.length : blockLines(b).every(function(ln){ return ln.every(function(x){ return x==='~'; }); }))?' disabled':'')+'>Vider</button>' : '')+
-      '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
+      '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>'+
+      (isRoll(b) ? '<button type="button" class="ab-btn" data-ab="zoom">Zoomer</button>' : '');
   } else {
     var nb = findBlock(sel.s, sel.b), NL = isRoll(nb) ? null : blockLines(nb);
     var rowEmpty = NL ? NL[sel.l].every(function(x){ return x==='~'; }) : !rollRowNotes(nb, sel.l).length;
@@ -3488,6 +3525,7 @@ viewport.addEventListener('change', function(e){
   mutate(function(){
     var b = findBlock(d.s, d.b); if (!b) return;
     if (d.nf==='synth' && v==='808') apply808(b);
+    else if (d.nf==='snap') rollSetSnap(b, v);
     else if (d.nf==='len'){   /* phrase plus courte : les notes au-delà disparaissent, celles qui débordent sont raccourcies */
       var L = Math.max(1, Math.min(ROLL_MAX_LEN, +v));
       b.notes = b.notes.filter(function(n){ return n.t < L - ROLL_EPS; });
@@ -3526,6 +3564,7 @@ bar.addEventListener('click', function(e){
     if (a==='addstep') mutate(function(){ if (b.steps.length<16) b.steps.push('~'); });
     if (a==='addline'){ if (isRoll(b)) rollGrow(b); else mutate(function(){ b.lines.push(newLine()); }); }
     if (a==='solo'){ toggleSolo('block', b.id); return; }
+    if (a==='zoom'){ zoomToBlock(b.id); return; }
     if (a==='mute') mutate(function(){ b.muted = !b.muted; });
     if (a==='clear' && b.type!=='code'){ mutate(function(){ if (isRoll(b)) b.notes = []; else blockLines(b).forEach(function(ln){ for (var k=0;k<ln.length;k++) ln[k] = '~'; }); }); toast('Bloc vidé. Annuler pour tout récupérer.'); }
     if (a==='dup') mutate(function(){ var c = cloneBlock(b); loc.s.blocks.splice(loc.i+1, 0, c); sel = {k:'block', s:loc.s.id, b:c.id}; });
@@ -4244,9 +4283,8 @@ function recHit(v, chip, hid, ev){
       var stop0 = holdVoice(b0, v, true);
       play(ctx.currentTime + .005);
       b0._rc0 = 0;
-      var n0 = {t:0, d:1/16, v:String(v)}; b0.notes.push(n0);
-      rec.fresh[b0.id+':0:0:0'] = 1;
-      recHolds[hid] = {b:b0, n:n0, row:0, q0:0, sp:speedOf(b0), stop:stop0};
+      var n0 = {t:0, d:1/64, v:String(v), _fresh:0}; b0.notes.push(n0);
+      recHolds[hid] = {b:b0, n:n0, start:0, sp:speedOf(b0), stop:stop0};
     }
     sel = {k:'stack', s:st0.id};
     persist(); renderCanvas(); renderCode();
@@ -4261,7 +4299,10 @@ function recHit(v, chip, hid, ev){
   /* la note vient d'être entendue en direct : la boucle ne la rejoue pas une seconde fois pendant ce tour */
   if (b.type==='s'){ b.steps[i] = v; rec.fresh[b.id+':0:'+i+':'+cyc] = 1; }
   else {
-    /* une ligne par tour de boucle : si la prise continue, une nouvelle ligne s'ouvre en dessous */
+    /* REC libre (#46) : la note garde l'instant exact où elle a été jouée, sans grille. Une ligne par tour de boucle. */
+    var f = k - Math.floor(k);
+    cyc = Math.floor(k);
+    if (f > 1 - 1/64){ cyc++; f = 0; }   /* jouée un cheveu avant le temps : c'est le début du tour suivant */
     if (b._rc0 == null) b._rc0 = cyc;
     var li = cyc - b._rc0;
     if (li >= REC_MAX_LINES){
@@ -4270,28 +4311,28 @@ function recHit(v, chip, hid, ev){
       if (b._rcWrap !== cyc){ rollRowOp(b, li, 'clear'); b._rcWrap = cyc; }
     }
     b.len = Math.max(rollLen(b), li + 1);
-    var nt = li + i/N, fkey = b.id+':'+li+':'+i+':'+cyc, nn = b.notes.filter(function(x){ return Math.abs(x.t - nt) < ROLL_EPS; })[0];
-    /* deux notes posées ensemble sur le même pas pendant ce tour forment un accord ; sinon la nouvelle remplace l'ancienne */
-    if (nn && rec.fresh[fkey]) nn.v = mergeChord(nn.v, v);
-    else { b.notes = b.notes.filter(function(x){ return Math.abs(x.t - nt) >= ROLL_EPS; }); nn = {t:nt, d:1/N, v:String(v)}; b.notes.push(nn); }
-    rec.fresh[fkey] = 1;
-    recHolds[hid] = {b:b, n:nn, row:li, q0:cyc*N + i, sp:sp, stop:stopV};
+    var nt = li + f, nn = b.notes.filter(function(x){ return x._fresh === cyc && Math.abs(x.t - nt) < 1/64; })[0];
+    /* deux notes jouées ensemble (à moins d'1/64 de tour) forment un accord */
+    if (nn) nn.v = mergeChord(nn.v, v);
+    else { nn = {t:nt, d:1/64, v:String(v), _fresh:cyc}; b.notes.push(nn); }
+    recHolds[hid] = {b:b, n:nn, start:cyc + f, sp:sp, stop:stopV};
   }
   sel = {k:'stack', s:st.id};
   recRender();
 }
-/* Relâcher : la note dure jusqu'au pas le plus proche du moment où on l'a lâchée */
+/* Relâcher : la note dure exactement jusqu'au relâchement (#46) */
 function recRelease(hid, ev){
   var h = recHolds[hid]; if (!h) return;
   delete recHolds[hid];
   if (h.stop) h.stop();
   if (!playing || !ctx) return;
-  var steps = Math.round(Math.max(0, recPos(ev))*h.sp*16) - h.q0, n = h.n;
-  if (steps < 2 || h.b.notes.indexOf(n) < 0) return;
-  /* la note dure jusqu'au relâchement, sans dépasser sa ligne ni la note suivante (jeu lié) */
-  var end = Math.min(n.t + steps/16, h.row + 1);
-  h.b.notes.forEach(function(x){ if (x !== n && x.t > n.t + ROLL_EPS && x.t < end) end = x.t; });
-  n.d = Math.max(n.d, end - n.t);
+  var n = h.n, b = h.b; if (b.notes.indexOf(n) < 0) return;
+  var end = n.t + Math.max(1/64, Math.max(0, recPos(ev))*h.sp - h.start);
+  /* jeu lié : la note s'arrête là où commence la suivante (pas les notes de son accord) */
+  b.notes.forEach(function(x){ if (x !== n && x.t > n.t + 1/64 && x.t < end) end = x.t; });
+  end = Math.min(end, REC_MAX_LINES);
+  n.d = end - n.t;
+  if (end > rollLen(b)) b.len = Math.ceil(end - ROLL_EPS);   /* une note tenue au-delà du dernier tour allonge la phrase */
   recRender();
 }
 function recReleaseAll(){ Object.keys(recHolds).forEach(function(k){ recRelease(k); }); }
@@ -4320,7 +4361,9 @@ function finishTake(){
     if (r0 == null) return;
     /* la ligne jouée au tour k de la boucle doit rester celle qui se rejoue au tour k : on fait tourner les lignes */
     var L = rollLen(b);
-    b.notes.forEach(function(n){ var r = Math.floor(n.t + ROLL_EPS); n.t = (((r + r0) % L) + L) % L + (n.t - r); });
+    b.notes.forEach(function(n){ var r = Math.floor(n.t + ROLL_EPS); n.t = (((r + r0) % L) + L) % L + (n.t - r); delete n._fresh; });
+    /* la prise brute est gardée : l'aimant (1/16 par défaut) en donne une version calée, et on peut en changer après coup */
+    rollSetSnap(b, 16);
   }); });
 }
 function stopRec(){
@@ -4380,7 +4423,7 @@ function scheduleRoll(st, b, F, sp, late, b0, b1, cd, pass){
     if (rec.on && b._rc0 != null){ ph = k - b._rc0; if (ph < 0 || ph >= len || ph >= REC_MAX_LINES) continue; }
     b.notes.forEach(function(n){
       if (n.t < ph - ROLL_EPS || n.t >= ph + 1 - ROLL_EPS) return;
-      if (rec.on && rec.fresh[b.id+':'+ph+':'+Math.round((n.t - ph)*16)+':'+k]) return;   /* déjà entendue en direct pendant la prise */
+      if (rec.on && n._fresh === k) return;   /* déjà entendue en direct pendant la prise */
       var f = n.t - ph, d = n.d;
       if (pass.rev) f = Math.max(0, 1 - f - Math.min(d, 1));
       var pos = k + f;
@@ -4937,7 +4980,7 @@ window.BTB = {
   onChange: function(fn){ libListeners.push(fn); },        /* appelé après chaque enregistrement du projet */
   showPage: function(k){ var b = document.querySelector('#nav [data-nav="'+k+'"]'); if (b) b.click(); },
   toast: function(m, ms){ toast(m, ms); },
-  _roll: {fromLines: linesToRoll, toMini: rollMini, parse: rollFromMini, code: blockCode}   /* pour les tests de la mélodie libre (#46) */
+  _roll: {fromLines: linesToRoll, toMini: rollMini, parse: rollFromMini, code: blockCode, quantize: rollQuantize}   /* pour les tests de la mélodie libre (#46) */
 };
 $('#openStrudel').addEventListener('click', function(){
   if (usedUserSounds().length) toast('Tes sons perso restent sur cet appareil : strudel.cc ne pourra pas les jouer.');
