@@ -112,6 +112,11 @@ Repères (cherche le nom dans le fichier).
 - `blockOut` / `buildChain` : chaînes d'effets mises en cache par bloc.
 - `synth` et `VOICE` : 24 instruments synthétisés (Karplus-Strong pour guitares et basses, piano, rhodes, orgue, marimba, cordes, flûte, cuivres, sax, chœur, supersaw, 808 avec chute de hauteur).
 - Percussions en onomatopées : Boum (bd), Tchak (sd), Clap (cp), Tss (hh), Pshh (oh), Tok (rim), Toum (lt), Crash (cr).
+- Bus master (`initAudio`) : saturation douce (`tanhCurve`), compression, limiteur, puis écrêteur doux (`softClipCurve`) : le son ne dépasse jamais le niveau maximum.
+- Pompage (sidechain) : tout sauf la batterie passe par le bus `duck`, qui baisse à chaque grosse caisse (`duckAt`, appelé par `scheduleRange`). La réverb et l'écho y passent aussi.
+- Passe-haut automatique à 150 Hz sur les blocs Mélo à partir de l'octave 3 (`rootOctave`), pour garder le grave net.
+- Batterie : le kit (`bank`) change le son (808 = kick long ; charley à 6 oscillateurs carrés, `metal`).
+- Voix synthétisées (`VOWELS`, `formants`) : `choir` (Chœur, Voix douce) et `vox` (Voix lead). L'effet Voyelle (`vowel`, comme `.vowel()` de Strudel) change ce que chante une voix, ou fait « parler » n'importe quel autre timbre.
 - `renderWav` / `exportWav` : export .wav hors ligne par tranches de ~8 s.
 - Son bloqué au lancement : les navigateurs interdisent le son avant un premier toucher. `autoStart` lance la lecture, et si le son est bloqué, l'écran `#soundHint` (fond assombri, encoches aux 4 coins, « Touche l'écran pour lancer la musique ») capte le premier toucher. Voir `audioLockCheck`, `unlockAudio`. Dans le bas de cet écran, hors de l'app installée et sur téléphone seulement, un mini tuto explique comment ajouter l'app à l'écran d'accueil selon le système et le navigateur (`installSteps`, `renderInstallTuto`) ; sur Chrome Android, un bouton « Installer l'app » utilise l'invitation du navigateur (`beforeinstallprompt`, gardée dans `window.btbInstallPrompt`).
 
