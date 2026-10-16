@@ -735,6 +735,8 @@ var FX = {
   delayfeedback:{cat:'Espace', label:'Répétitions', min:0, max:.95, step:.05, def:.5, desc:'Combien de fois l’écho se répète.'},
   crush:    {cat:'Couleur', label:'Bitcrush', min:1, max:16, step:1, def:4, desc:'Réduit la résolution : plus le chiffre est bas, plus le son est sale.'},
   shape:    {cat:'Couleur', label:'Saturation', min:0, max:.95, step:.05, def:.4, desc:'Sature et épaissit le son.'},
+  cut:      {cat:'Son', label:'Coupure', min:1, max:8, step:1, def:1, desc:'Les sons perso d’un même groupe se coupent entre eux, comme sur une boîte à rythmes. Sans cet effet, chacun coupe déjà sa propre copie.'},
+  clip:     {cat:'Enveloppe', label:'Durée', min:.25, max:4, step:.25, def:1, desc:'Coupe chaque son perso à cette durée, en pas : 1 = la durée d’un pas.'},
   vowel:    {cat:'Couleur', label:'Voyelle', select:['a','e','i','o','u'], def:'a', desc:'Fait chanter le son sur une voyelle : a, é, i, o, ou. Sur une voix, change ce qu’elle chante.'},
   fast:     {cat:'Temps', label:'Accélérer', min:.25, max:8, step:.25, def:2, desc:'Joue la boucle plus vite : ×2 la fait tourner deux fois par cycle.'},
   slow:     {cat:'Temps', label:'Ralentir', min:.25, max:8, step:.25, def:2, desc:'Étire la boucle : ÷2 la fait durer deux cycles.'},
@@ -2272,14 +2274,24 @@ function noise(t, dur){ var s = ctx.createBufferSource(); s.buffer = noiseBuf; s
 function eg(t, peak, a, d){ var g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.exponentialRampToValueAtTime(peak, t+a); g.gain.exponentialRampToValueAtTime(.0001, t+a+d); return g; }
 function flt(type, f, q){ var x = ctx.createBiquadFilter(); x.type = type; x.frequency.value = f; if (q!=null) x.Q.value = q; return x; }
 function osc(type, t, dur){ var o = ctx.createOscillator(); o.type = type; o.start(t); o.stop(t+dur); return freeOnEnd(o); }
-/* Un son de l'utilisateur : joué en entier (12 s au plus), avec de très courts fondus pour éviter les clics */
-function playUser(name, t, out){
+/* Un son de l'utilisateur : joué en entier (12 s au plus), avec de très courts fondus pour éviter les clics.
+   o.len : durée imposée (effet Durée, .clip). o.group : groupe de coupure (.cut) ; par défaut, le bloc lui-même,
+   pour qu'un son relancé par la boucle coupe sa copie précédente au lieu de s'empiler. */
+function playUser(name, t, out, o){
   var buf = USER_BUF[name]; if (!buf) return;
-  var dur = Math.min(buf.duration, 12);
+  var dur = Math.min(buf.duration, 12, o && o.len ? o.len : 99);
   var s = ctx.createBufferSource(); s.buffer = buf;
   var g = ctx.createGain(); g.gain.setValueAtTime(.0001, t); g.gain.linearRampToValueAtTime(1, t + .004);
   g.gain.setValueAtTime(1, t + Math.max(.005, dur - .012)); g.gain.linearRampToValueAtTime(.0001, t + dur);
   s.connect(g).connect(out); s.start(t); s.stop(t + dur + .01); freeOnEnd(s);
+  if (o && o.group){
+    var M = ctx._cut || (ctx._cut = {}), prev = M[o.group];
+    if (prev && prev.t < t && prev.end > t){
+      prev.g.gain.cancelScheduledValues(t); prev.g.gain.setTargetAtTime(0, t, .005);
+      try { prev.src.stop(t + .04); } catch (e) {}   /* certains navigateurs refusent un second stop : le fondu suffit alors */
+    }
+    M[o.group] = {src:s, g:g, t:t, end:t + dur};
+  }
 }
 /* Batterie. Le kit (effet « Kit de batterie », .bank) change le caractère : 808 = kick long et rond, sinon un kick court et sec type 909.
    Charley : 6 oscillateurs carrés désaccordés, la vraie recette de la 808 (plus métallique et réaliste que du bruit filtré). */
@@ -2605,7 +2617,10 @@ function scheduleRange(a, z){
             var t = startT + (pos/sp + late)*cd, name = String(v).split(':')[0];
             if (b.type==='s'){
               if (DRUM[name]) DRUM[name](t, blockOut(b, pos, pass.pan), F.bank ? String(F.bank.v) : '');
-              else if (USER_BUF[name]) playUser(name, t, blockOut(b, pos, pass.pan));
+              else if (USER_BUF[name]) playUser(name, t, blockOut(b, pos, pass.pan), {
+                group: F.cut ? 'cut' + Math.round(val(F.cut, pos)) : 'blk' + b.id + (pass.pan === null ? '' : pass.pan),
+                len: F.clip ? Math.max(.02, val(F.clip, pos))*cd/(N*sp) : null
+              });
               if ((name==='bd' || name==='lt') && (pass.pan === null || pass.pan < 0)) duckAt(t);
             }
             else { var vo = blockOut(b, pos, pass.pan), du = cd/(N*sp*ply)*(ply > 1 ? 1 : elen)*.92; String(v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, du, vo, pos); }); }
