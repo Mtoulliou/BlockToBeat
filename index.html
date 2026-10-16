@@ -2407,11 +2407,11 @@ function tick(){
   scheduleRange(schedUntil, until);
   schedUntil = until;
 }
-function play(){
+function play(at){
   initAudio(); if (!ctx) return;
   ctx.resume();
   updateDelay();
-  startT = ctx.currentTime + .06; schedUntil = startT;
+  startT = at != null ? at : ctx.currentTime + .06; schedUntil = startT;   /* at : instant précis du premier temps (REC) */
   rollMemo = {};
   playing = true; timer = setInterval(tick, 25); tick();
   document.body.classList.add('is-playing');
@@ -3546,24 +3546,50 @@ function recRender(){
   if (!recRaf) recRaf = requestAnimationFrame(function(){ recRaf = 0; renderCanvas(); });
   clearTimeout(recCodeT); recCodeT = setTimeout(renderCode, 250);
 }
-/* live = prise REC : on entend exactement ce que la boucle rejouera (pas de son prolongé artificiellement) */
+/* live = prise REC : on entend exactement ce que la boucle rejouera */
 function holdVoice(b, v, live){
   initAudio(); if (!ctx) return null;
   ctx.resume();
+  var t = ctx.currentTime + .005, out, gs = [];
+  if (live){
+    var T = timbreOf(b.synth), F = fxOf(b), step = cycleDur()/16*.92;
+    out = blockOut(b);
+    /* instruments qui résonnent (piano, guitares, marimba…) : à la relecture, la note résonne jusqu'au bout,
+       quelle que soit sa durée. On la joue donc pareil, sans la couper au relâchement (#43). */
+    if (T.ring && !F.release && !F.sustain){
+      String(v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, step, out, 0); });
+      return function(){};
+    }
+    /* les autres tiennent tant qu'on appuie, puis finissent comme à la relecture (même relâchement R) */
+    String(v).split(',').forEach(function(x){ gs.push(synth(b, noteFreq(b, +x), t, 12, out, 0)); });
+    var R = F.release ? Math.max(.01, val(F.release, 0)) : T.R;
+    return function(){
+      var n = Math.max(ctx.currentTime, t + step);
+      gs.forEach(function(g){ try { if (g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(n); else g.gain.cancelScheduledValues(n); g.gain.exponentialRampToValueAtTime(.0001, n + R); } catch (e) {} });
+    };
+  }
   /* hors REC, tant qu'on tient, le son tient : on garde au moins 45 % du volume (piano, guitare… s'éteignent sinon tout seuls) */
-  if (!live && !(b.fx || []).some(function(f){ return f.type==='sustain'; }) && timbreOf(b.synth).S < .45) b = Object.assign({}, b, {fx:(b.fx || []).concat([{type:'sustain', v:.45}]), id:(b.id || 'hold') + '~h'});
-  var t = ctx.currentTime + .005, out = blockOut(b), gs = [], minDur = live ? cycleDur()/16*.92 : .3;
+  if (!(b.fx || []).some(function(f){ return f.type==='sustain'; }) && timbreOf(b.synth).S < .45) b = Object.assign({}, b, {fx:(b.fx || []).concat([{type:'sustain', v:.45}]), id:(b.id || 'hold') + '~h'});
+  out = blockOut(b);
   String(v).split(',').forEach(function(x){ gs.push(synth(b, noteFreq(b, +x), t, 12, out, 0)); });
   return function(){
-    /* un appui bref donne quand même une note complète : 0,3 s, ou un pas en REC (comme à la relecture) */
-    var n = Math.max(ctx.currentTime, t + minDur);
+    /* un appui bref donne quand même une note complète (0,3 s) */
+    var n = Math.max(ctx.currentTime, t + .3);
     gs.forEach(function(g){ try { if (g.gain.cancelAndHoldAtTime) g.gain.cancelAndHoldAtTime(n); else g.gain.cancelScheduledValues(n); g.gain.setTargetAtTime(.0001, n, .07); } catch (e) {} });
   };
 }
 /* Moment joué, en tours de boucle : ce qu'on entendait à cet instant, corrigé du délai entre le geste et son traitement */
 function recPos(ev){
-  var lag = ev && ev.timeStamp ? Math.max(0, Math.min(.1, (performance.now() - ev.timeStamp)/1000)) : 0;
-  return (ctx.currentTime - lag - (ctx.outputLatency || 0) - startT)/cycleDur();
+  var now = performance.now(), evT = ev && ev.timeStamp > 0 && now - ev.timeStamp >= 0 && now - ev.timeStamp < 500 ? ev.timeStamp : now;
+  /* getOutputTimestamp dit quel instant de la musique sort des haut-parleurs, et quand : on en déduit ce qu'on
+     entendait au moment du geste, retard de sortie compris (Bluetooth, iPhone où outputLatency n'existe pas) (#43) */
+  var ts = ctx.getOutputTimestamp ? ctx.getOutputTimestamp() : null, heard = null;
+  if (ts && ts.contextTime > 0 && ts.performanceTime > 0){
+    heard = ts.contextTime + (evT - ts.performanceTime)/1000;
+    if (!(heard <= ctx.currentTime + .01 && heard > ctx.currentTime - 1)) heard = null;   /* valeur aberrante : on revient à l'ancien calcul */
+  }
+  if (heard == null) heard = ctx.currentTime - (now - evT)/1000 - (ctx.outputLatency || 0);
+  return (heard - startT)/cycleDur();
 }
 /* Deux notes posées ensemble sur le même pas pendant ce tour forment un accord, au lieu que la seconde efface la première */
 function recWrite(line, i, v, fkey){
@@ -3583,11 +3609,13 @@ function recHit(v, chip, hid, ev){
     /* La prise démarre sur la première note : elle devient le premier temps de la boucle */
     initAudio(); if (!ctx) return;
     var st0 = recStack(), b0 = recBlockFor(st0, v);
-    if (b0.type==='s'){ b0.steps[0] = v; play(); }
+    /* le premier temps de la boucle est l'instant exact de la première note : sinon toute la grille est
+       décalée et les notes suivantes s'enregistrent trop tôt (#43) */
+    if (b0.type==='s'){ b0.steps[0] = v; play(ctx.currentTime + .005); }
     else {
       /* la note tenue sonne tout de suite ; elle est écrite une fois la boucle lancée pour ne pas la jouer deux fois */
       var stop0 = holdVoice(b0, v, true);
-      play();
+      play(ctx.currentTime + .005);
       b0._rc0 = 0; b0.lines[0][0] = v;
       rec.fresh[b0.id+':0:0:0'] = 1;
       recHolds[hid] = {b:b0, li:0, i:0, q0:0, sp:speedOf(b0), stop:stop0};
