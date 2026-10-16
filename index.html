@@ -2371,6 +2371,9 @@ function scheduleRange(a, z){
         if (song && !sk) continue;
         var lk = b._rc0 != null ? k - b._rc0 : song ? k - Math.round(sk.start*sp) : k;
         var LL = b.type==='s' ? sLines(b) : b.lines;
+        /* pendant la prise, chaque tour a sa ligne : un tour où l'on n'a encore rien joué reste muet
+           (sinon la ligne du tour d'avant se rejoue et on entend des notes qu'on ne joue pas) */
+        if (rec.on && b._rc0 != null && (lk < 0 || lk >= LL.length || lk >= REC_MAX_LINES)) continue;
         var lidx = ((lk % LL.length) + LL.length) % LL.length, line = LL[lidx];
         if (!line || !line.length) continue;
         var N = line.length, ply = F.ply ? Math.max(1, Math.round(val(F.ply, k))) : 1;
@@ -3605,7 +3608,11 @@ function recHit(v, chip, hid, ev){
     /* une ligne par tour de boucle : si la prise continue, une nouvelle ligne s'ouvre en dessous */
     if (b._rc0 == null) b._rc0 = cyc;
     var li = cyc - b._rc0;
-    if (li >= REC_MAX_LINES) li = li % REC_MAX_LINES;
+    if (li >= REC_MAX_LINES){
+      li = li % REC_MAX_LINES;
+      /* au-delà de 8 tours, on réécrit une ancienne ligne : elle repart vide à la première note du tour */
+      if (b._rcWrap !== cyc && b.lines[li]){ b.lines[li] = Array(16).fill('~'); b._rcWrap = cyc; }
+    }
     while (b.lines.length <= li) b.lines.push(Array(16).fill('~'));
     recWrite(b.lines[li], i, v, b.id+':'+li+':'+i+':'+cyc);
     recHolds[hid] = {b:b, li:li, i:i, q0:cyc*N + i, sp:sp, stop:stopV};
@@ -3647,7 +3654,7 @@ function recStatus(){ document.body.classList.toggle('rec-armed', rec.on && !pla
 function finishTake(){
   P.stacks.forEach(function(st){ st.blocks.forEach(function(b){
     if (!('_rc0' in b)) return;
-    var r0 = b._rc0; delete b._rc0;
+    var r0 = b._rc0; delete b._rc0; delete b._rcWrap;
     if (r0 == null) return;
     var L = b.lines.length, out = [];
     for (var j=0;j<L;j++) out[j] = b.lines[(((j - r0) % L) + L) % L];
