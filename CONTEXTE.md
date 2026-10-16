@@ -97,6 +97,7 @@ Repères (cherche le nom dans le fichier).
 - Les blocs Mélo n'ont plus de cases (voir « Mélodie libre et piano roll ») : une note a un début et une durée. Les cases (`cellHTML`, `openCellPicker`, sélection multiple) ne servent plus qu'aux blocs Son.
 - Menus de notes : `degCount`, `degList` (au moins 0 à 12). `chordOn(degré, 3, gamme)` construit un accord. `chordInfo(b, v)` donne son vrai nom (« La m ») et ses notes (« La Do Mi »).
 - Palette Notes : les pads suivent la gamme du bloc Mélo sélectionné (`padRef`, `refreshPads`).
+- Accords qui vont bien ensemble (#40) : en mode Accords, l'accord touché (`chordFocus`) colore les autres : vert vif = enchaînement classique (`CHORD_NEXT`), vert léger = autre accord de la gamme, estompé = diminué ou hors gamme ; gamme chromatique = cycle des quintes (`chordMatches`, `chordMatchClass`). Même chose dans le menu d'une note qui est un accord.
 - Menu d'une note du piano roll : `openNotePicker`, avec le choix Notes / Accords (`cellChord`).
 - « Basse 808 » dans le menu Timbre : `is808`, `apply808`, `timbreOptions` (sinus dans le grave + decay, sustain 0, shape).
 
