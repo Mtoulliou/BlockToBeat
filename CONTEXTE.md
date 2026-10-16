@@ -94,10 +94,10 @@ Repères (cherche le nom dans le fichier).
 - Annuler / rétablir : `mutate(fn)` enregistre l'état avant chaque modification. Passe toujours par `mutate` pour modifier `P`.
 
 ### Notes, accords, notes tenues
-- Une note tenue est **une seule note** : `noteHead`, `noteSpan`, `delStep` (supprime toute la note), `setStep` (silence = toute la note). On change sa durée en glissant n'importe quel morceau (`stretchMove`).
+- Les blocs Mélo n'ont plus de cases (voir « Mélodie libre et piano roll ») : une note a un début et une durée. Les cases (`cellHTML`, `openCellPicker`, sélection multiple) ne servent plus qu'aux blocs Son.
 - Menus de notes : `degCount`, `degList` (au moins 0 à 12). `chordOn(degré, 3, gamme)` construit un accord. `chordInfo(b, v)` donne son vrai nom (« La m ») et ses notes (« La Do Mi »).
 - Palette Notes : les pads suivent la gamme du bloc Mélo sélectionné (`padRef`, `refreshPads`).
-- Menu d'un pas : `openCellPicker`, avec le choix Notes / Accords (`cellChord`).
+- Menu d'une note du piano roll : `openNotePicker`, avec le choix Notes / Accords (`cellChord`).
 - « Basse 808 » dans le menu Timbre : `is808`, `apply808`, `timbreOptions` (sinus dans le grave + decay, sustain 0, shape).
 
 ### Mélodie libre et piano roll (#46, refonte du REC, en cours)
@@ -171,7 +171,7 @@ Repères (cherche le nom dans le fichier).
 - Les tests sont dans `tests/`, un fichier par sujet (`*.test.js`). Ils lancent l'app dans de vrais navigateurs avec Playwright : tests des fonctions (via `window.BTB._roll`) et tests de ce que fait l'utilisateur (toucher, glisser, REC, import, son).
 - Lancer : `npm install` puis `npx playwright install chromium firefox` (une seule fois), puis **`npm test`** (tous) ou `node tests/run.js pianoroll` (un seul fichier). `tests/run.js` sert le site en local tout seul.
 - Écrire un test : un fichier `tests/<sujet>.test.js` qui exporte `async ({ url, check }) => { … }` ; `check(condition, 'ce qui est vérifié')` affiche OK ou ÉCHEC. Outils communs dans `tests/lib.js` : `openApp(url, {project, seed, viewport, touch, sound, browser, init})` (ouvre l'app, enlève l'écran de lancement, charge un projet), `melo`, `oneBlock`, `notesOf`, `fmtNotes`, `zoomOn`, `drag`.
-- Fichiers actuels : `app` (vérification générale, Chromium et Firefox), `roll-modele` (conversion, écriture et relecture Strudel, démos), `import` (aller-retour par le vrai bouton Importer), `son` (instants exacts des notes), `pianoroll` (lignes, gestes, menus, pads, tête de lecture, au doigt), `rec` (prise exacte, pas de notes fantômes, piano roll pendant la prise).
+- Fichiers actuels : `app` (vérification générale, Chromium et Firefox), `roll-modele` (conversion, écriture et relecture Strudel, démos), `import` (aller-retour par le vrai bouton Importer), `son` (instants exacts des notes), `pianoroll` (lignes, gestes, menus, pads, tête de lecture, au doigt), `rec` (prise exacte, pas de notes fantômes, piano roll pendant la prise). Aussi `blocs-son` (menu d'un pas Son, sélection multiple, palette, dépôt d'une note sur un piano roll).
 - Pièges : l'écran `#soundHint` capte les clics (`openApp` s'en charge) ; les démos sont tirées au hasard (option `seed`) ; sur la version dev en ligne, la clé du projet finit par `-dev`.
 - Dans la PR, dis ce qui a été testé, et ce qui ne peut l'être que sur un vrai téléphone.
 
