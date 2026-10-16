@@ -2944,6 +2944,7 @@ function play(at){
   var b = $('#play'); b.setAttribute('aria-pressed', 'true'); b.setAttribute('aria-label', 'Pause');
 }
 function stop(){
+  danceReset();
   playing = false; clearInterval(timer); vq = [];
   document.body.classList.remove('is-playing');
   recStatus();
@@ -3037,13 +3038,15 @@ function segStart(bar){ for (var b = bar; b > bar - 4 && b > 0; b--) if (rnd(b*1
 /* La vague réagit à ce qu'on entend (#41) : chaque percussion la fait rebondir (la grosse caisse plus fort),
    chaque note de mélodie la fait onduler. Sans aucun son, même en lecture, elle reste calme. */
 var danceD = -99, danceK = 0, danceM = -99, dancePh = 0, danceT = 0;
-function danceHit(e){ var ts = performance.now()/1000; if (e.type==='s'){ danceD = ts; danceK = e.kick ? 1 : .55; } else danceM = ts; }
+/* une note de mélodie anime la vague tant qu'elle sonne (e.d = sa durée), puis l'énergie retombe vite */
+function danceHit(e){ var ts = performance.now()/1000; if (e.type==='s'){ danceD = ts; danceK = e.kick ? 1 : .55; } else danceM = Math.max(danceM, ts + (e.d || 0)); }
+function danceReset(){ danceD = danceM = -99; }
 function dance(now){
   if (!mascot) return;
   var ts = performance.now()/1000, live = playing && ctx;
   if (ts > nextBlink){ blinkUntil = ts + .11; nextBlink = ts + 1.8 + Math.random()*4.5; }
   var blink = ts < blinkUntil;
-  var dE = Math.exp(-(ts - danceD)/.4), mE = Math.exp(-(ts - danceM)/.9);   /* énergie des percussions et de la mélodie */
+  var dE = Math.exp(-(ts - danceD)/.4), mE = ts < danceM ? 1 : Math.exp(-(ts - danceM)/.4);   /* énergie des percussions et de la mélodie */
   if (live && dE < .03 && mE < .03) live = false;                           /* en lecture mais rien ne sonne : au calme */
   var sounding = live && !reduceMotion;
   if (document.body.classList.contains('is-sounding') !== sounding) document.body.classList.toggle('is-sounding', sounding);
@@ -4246,7 +4249,7 @@ function scheduleRoll(st, b, F, sp, late, b0, b1, cd, pass){
       if (F.degradeBy && Math.random() < val(F.degradeBy, pos)) return;
       var t = startT + (pos/sp + late)*cd, vo = blockOut(b, pos, pass.pan), du = d*cd/sp*.92;
       String(n.v).split(',').forEach(function(x){ synth(b, noteFreq(b, +x), t, du, vo, pos); });
-      if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type});
+      if (pass.pan === null || pass.pan < 0) vq.push({t:t, id:b.id, type:b.type, d:du});
     });
   }
 }
