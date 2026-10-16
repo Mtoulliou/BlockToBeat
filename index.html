@@ -469,6 +469,14 @@ body.rec-on .isl-song{display:none}
 .chip.chip--chord{flex-direction:column;line-height:1;gap:2px;height:auto;min-height:40px;padding:4px 2px;font-family:var(--f-body);font-size:12.5px;white-space:nowrap}
 .chip.chip--chord small{font-size:9px;font-weight:700;opacity:.75;line-height:1.1;white-space:normal;text-align:center}
 .pal-pads.is-chord{grid-template-columns:repeat(3,minmax(0,1fr))}
+/* accords qui vont bien ensemble (#40) */
+.pal-pads.has-focus .pi.ch-strong .chip,.pick.ch-strong{box-shadow:inset 0 0 0 3px var(--fx),0 0 12px rgba(92,214,163,.55)}
+.pal-pads.has-focus .pi.ch-good .chip,.pick.ch-good{box-shadow:inset 0 0 0 2px rgba(92,214,163,.5)}
+.pal-pads.has-focus .pi.ch-self .chip,.pick.ch-self{box-shadow:inset 0 0 0 3px var(--fg)}
+.pal-pads.has-focus .pi.ch-far .chip,.pick.ch-far{opacity:.45}
+.ch-legend{display:flex;align-items:center;gap:6px;margin:8px 2px 0;font-size:12px}
+.ch-dot{display:inline-block;width:10px;height:10px;border-radius:3px;background:var(--fx)}
+.ch-dot.ch-good{background:rgba(92,214,163,.45)}
 .len-row{display:flex;align-items:center;gap:6px;margin-bottom:10px}
 .len-row button{flex:1;height:38px;border-radius:10px;border:0;background:var(--note-ink);color:var(--note-2);font-weight:700;font-size:13px;box-shadow:inset 0 0 0 1.5px var(--note)}
 .len-row button:disabled{opacity:.35}
@@ -1223,13 +1231,15 @@ function openNotePicker(sid, bid, ni){
     '<div class="chord-row chord-row--2"><button type="button" data-cmode="0" aria-pressed="'+(!chordMode)+'">Notes</button><button type="button" data-cmode="1" aria-pressed="'+chordMode+'">Accords</button></div>'+
     (isChord && !chordMode ? '<p class="pop-sub chord-hint">Touche des notes pour les ajouter ou les retirer de l’accord.</p>' : '')+
     '<div class="pop-grid'+(chordMode?'':' pop-grid--n')+'">';
+  var focus = null;   /* si la note est un accord de la gamme, on colore ceux qui vont bien avec lui (#40) */
+  if (isChord) degList(b).forEach(function(o){ if (focus == null && chordOn(+o, 3, b.scale) === String(n.v)) focus = chordMatches(b, +o); });
   degList(b).forEach(function(o){
     if (chordMode){
       var cv = chordOn(+o, 3, b.scale), info = chordInfo(b, cv);
-      h += '<button type="button" class="pick pick--n pick--chord'+(cv===n.v?' on':'')+'" data-pickchord="'+cv+'"><span>'+esc(info.name || o)+'</span><small>'+esc(info.notes)+'</small></button>';
+      h += '<button type="button" class="pick pick--n pick--chord'+(cv===n.v?' on':'')+chordMatchClass(focus, +o)+'" data-pickchord="'+cv+'"><span>'+esc(info.name || o)+'</span><small>'+esc(info.notes)+'</small></button>';
     } else h += '<button type="button" class="pick pick--n'+((isChord ? parts.indexOf(o) > -1 : o===String(n.v))?' on':'')+'" data-pick="'+o+'"><span>'+o+'</span></button>';
   });
-  h += '</div><div class="pop-row2"><button type="button" class="pop-act" data-nact="dup"'+(n.t + 2*n.d > len + ROLL_EPS?' disabled':'')+'>Dupliquer</button><button type="button" class="pop-del" data-nact="del">Supprimer cette note</button></div>';
+  h += '</div>'+(chordMode && focus ? '<p class="pop-sub ch-legend"><i class="ch-dot ch-strong"></i>va très bien ensuite <i class="ch-dot ch-good"></i>va bien</p>' : '')+'<div class="pop-row2"><button type="button" class="pop-act" data-nact="dup"'+(n.t + 2*n.d > len + ROLL_EPS?' disabled':'')+'>Dupliquer</button><button type="button" class="pop-del" data-nact="del">Supprimer cette note</button></div>';
   pop.innerHTML = h; showPop(el);
   function again(){ openNotePicker(sid, bid, ni); }
   function cur(){ var bb = findBlock(sid, bid); return bb && bb.notes[ni]; }
@@ -3381,6 +3391,28 @@ function chordOn(d, n, scale){ var st = scale==='chromatic' ? [0, 4, 7, 10] : [0
 var palChord = false;
 /* Les pads suivent la gamme du bloc Mélo sélectionné (sinon celle des prises REC) */
 function padRef(){ var sb = !rec.on && selBlock(); return sb && sb.type==='n' ? sb : recNoteTemplate(); }
+/* Accords qui vont bien ensemble (#40). Gammes de 7 notes : les enchaînements classiques (I → IV V vi, ii → V,
+   V → I vi…) vont « très bien », les autres accords de la gamme « bien », l'accord diminué non. Gamme chromatique :
+   on suit le cycle des quintes (quarte et quinte très bien). Les degrés au-delà de l'octave valent leur degré dans l'octave. */
+var CHORD_NEXT = {0:[3,4,5], 1:[4,6], 2:[5,3], 3:[4,0,1], 4:[0,5], 5:[1,3,4], 6:[0,2]};
+function chordMatches(ref, deg){
+  var L = scaleOf(ref).length, d = ((deg % L) + L) % L, strong = {}, good = {};
+  if (L === 7){
+    CHORD_NEXT[d].forEach(function(x){ strong[x] = 1; });
+    for (var k=0;k<7;k++) if (k !== d && !strong[k] && !/dim/.test(chordInfo(ref, chordOn(k, 3, ref.scale)).name)) good[k] = 1;
+  } else {
+    [5, 7].forEach(function(x){ strong[(d + x) % L] = 1; });
+    [2, 3, 9, 10].forEach(function(x){ good[(d + x) % L] = 1; });
+  }
+  return {L:L, d:d, strong:strong, good:good};
+}
+/* classe d'un accord (degré k) par rapport à l'accord touché */
+function chordMatchClass(m, k){
+  if (!m) return '';
+  var r = ((k % m.L) + m.L) % m.L;
+  return r === m.d ? ' ch-self' : m.strong[r] ? ' ch-strong' : m.good[r] ? ' ch-good' : ' ch-far';
+}
+var chordFocus = null;   /* degré de l'accord touché en dernier dans les pads (mode Accords) */
 function refreshPads(){
   var wrap = palette.querySelector('.pal-pads'); if (!wrap) return;
   var ref = padRef(), n = degCount(ref);
@@ -3397,7 +3429,10 @@ function refreshPads(){
     var ch = pi.querySelector('.chip'), ci = palChord ? chordInfo(ref, v) : null; ch.classList.toggle('chip--chord', palChord);
     ch.innerHTML = palChord ? esc(ci.name || String(idx)) + '<small>' + esc(ci.notes) + '</small>' : String(idx);
     pi.setAttribute('aria-label', palChord ? 'Accord ' + (ci.name || 'sur le degré ' + idx) + ' : ' + ci.notes : 'Degré ' + idx);
+    pi.dataset.deg = idx;
+    pi.className = 'pi pi-pad' + (palChord && chordFocus != null ? chordMatchClass(chordMatches(ref, chordFocus), idx) : '');
   });
+  wrap.classList.toggle('has-focus', palChord && chordFocus != null);
   var t = palette.querySelector('[data-chordmode]'); if (t) t.setAttribute('aria-pressed', String(palChord));
   syncPalH();
 }
@@ -3673,6 +3708,7 @@ palette.addEventListener('pointerdown', function(e){
   if (palHoldStop){ palHoldStop(); palHoldStop = null; }
   /* une note sonne tant que le doigt reste sur le pad */
   if (pp.k==='note') palHoldStop = holdVoice(sb && sb.type==='n' ? sb : recNoteTemplate(), pp.v);
+  if (pp.k==='note' && palChord && pi.dataset.deg != null){ chordFocus = +pi.dataset.deg; refreshPads(); }
   else preview(sb && sb.type==='s' ? sb : null, pp.v);
   palPreviewed = true;
 });
@@ -3683,6 +3719,7 @@ window.addEventListener('pointercancel', palRelease);
 palette.addEventListener('contextmenu', function(e){ e.preventDefault(); });
 palette.addEventListener('click', function(e){
   var t = e.target.closest('[data-chordmode]'); if (!t) return;
+  chordFocus = null;
   palChord = !palChord; refreshPads();
   if (palChord) preview(selBlock() && selBlock().type==='n' ? selBlock() : recNoteTemplate(), '0,2,4');
 });
@@ -4356,6 +4393,7 @@ palette.addEventListener('pointerdown', function(e){
   if (p.k!=='sound' && p.k!=='note') return;
   e.preventDefault(); e.stopPropagation();
   recHit(p.v, pi.querySelector('.chip'), 'p'+e.pointerId, e);
+  if (p.k==='note' && palChord && pi.dataset.deg != null){ chordFocus = +pi.dataset.deg; refreshPads(); }
 }, true);
 palette.addEventListener('click', function(e){
   if (!rec.on) return;
