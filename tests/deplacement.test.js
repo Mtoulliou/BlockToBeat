@@ -3,7 +3,7 @@ const { openApp } = require('./lib');
 const zoom = p => p.evaluate(() => +/scale\(([\d.]+)\)/.exec(document.querySelector('#canvas').style.transform)[1]);
 module.exports = async ({ url, check }) => {
   const p = await openApp(url, { viewport: { width: 1100, height: 800 } });
-  await p.click('#codeToggle').catch(() => {});
+  await p.evaluate(() => { const c = document.getElementById('codeToggle'); if (c && c.getAttribute('aria-pressed') === 'true') c.click(); });
   await p.mouse.move(550, 400); await p.keyboard.down('Control'); await p.mouse.wheel(0, -120); await p.keyboard.up('Control'); await p.waitForTimeout(100);
   // un toucher dont la fin s'est perdue (le navigateur ne l'a jamais signalé)
   await p.evaluate(() => { document.getElementById('viewport').dispatchEvent(new PointerEvent('pointerdown', { pointerId: 99, isPrimary: true, bubbles: true, clientX: 700, clientY: 600, pointerType: 'touch' })); });

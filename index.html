@@ -4694,8 +4694,8 @@ function pickDemo(){
   try { localStorage.setItem('blocktobeat-demo-last', d.id); } catch (e) {}
   return d;
 }
-function loadDemo(){
-  var d = pickDemo(), res;
+function loadDemo(given){
+  var d = given || pickDemo(), res;
   try { res = parseStrudel(d.code); } catch (e) { return false; }
   if (!res || !res.stacks.length) return false;
   var y = 0;
@@ -4804,6 +4804,11 @@ window.BTB = {
   onChange: function(fn){ libListeners.push(fn); },        /* appelé après chaque enregistrement du projet */
   showPage: function(k){ var b = document.querySelector('#nav [data-nav="'+k+'"]'); if (b) b.click(); },
   toast: function(m, ms){ toast(m, ms); },
+  _demos: function(){ return DEMOS.map(function(d){ return {id:d.id, name:d.name}; }); },   /* tests : la liste des démos */
+  _loadDemo: function(id){   /* tests : charger une démo précise, comme au lancement */
+    var d = DEMOS.filter(function(x){ return x.id === id; })[0]; if (!d || !loadDemo(d)) return false;
+    sel = null; renderAll(); updateDelay(); userMoved = false; fitView(); return true;
+  },
   _roll: {fromLines: linesToRoll, toMini: rollMini, parse: rollFromMini, code: blockCode, quantize: rollQuantize}   /* pour les tests de la mélodie libre (#46) */
 };
 $('#openStrudel').addEventListener('click', function(){

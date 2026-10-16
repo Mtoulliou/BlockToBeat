@@ -1,5 +1,5 @@
 /* Blocs Son après le ménage de #46 (étape 5) : menu d'un pas, suppression, sélection multiple, palette ; dépôt d'une note sur un piano roll */
-const { openApp, melo, zoomOn } = require('./lib');
+const { openApp, melo, zoomOn, tab } = require('./lib');
 module.exports = async ({ url, check }) => {
   const proj = { stacks: [{ id: 'st', title: 'Test', x: 0, y: 0, muted: false, blocks: [
     { id: 'bs', type: 's', muted: false, steps: ['bd', '~', 'sd', '~'], alt: [['hh', 'hh', '~', 'oh']], fx: [] },
@@ -19,10 +19,10 @@ module.exports = async ({ url, check }) => {
   await p.click('.cell[data-key="bs:1:1"]'); await p.click('[data-ab="m-rest"]'); await p.waitForTimeout(150);
   check((await steps()).endsWith('~ ~ ~ oh'), 'sélection multiple de pas Son : mettre en silence');
   // un son de la palette va dans la ligne sélectionnée
-  await p.click('.s-ln[data-l="1"]'); await p.click('[data-tab="sons"]').catch(() => {}); await p.click('[data-sec="sons"] [data-pal*="\\"rim\\""]'); await p.waitForTimeout(150);
+  await p.click('.s-ln[data-l="1"]'); await tab(p, 'sons'); await p.click('[data-sec="sons"] [data-pal*="\\"rim\\""]'); await p.waitForTimeout(150);
   check((await steps()).endsWith('~ ~ ~ oh rim'), 'palette : le son va dans la ligne Son sélectionnée');
   // glisser une note de la palette sur le piano roll
-  await p.click('[data-tab="notes"]').catch(() => {});
+  await tab(p, 'notes');
   const pad = await (await p.$('.pal-pads .pi-pad:nth-child(4)')).boundingBox(), body = await (await p.$('.roll-body')).boundingBox();
   await p.mouse.move(pad.x + pad.width / 2, pad.y + pad.height / 2); await p.mouse.down();
   for (let k = 1; k <= 10; k++) await p.mouse.move(pad.x + (body.x + body.width * .52 - pad.x) * k / 10, pad.y + (body.y + 18 - pad.y) * k / 10);
