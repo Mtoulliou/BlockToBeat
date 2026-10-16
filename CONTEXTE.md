@@ -110,7 +110,9 @@ Repères (cherche le nom dans le fichier).
 
 ### REC
 - Bouton REC : le menu du bas devient le pad. La prise attend la première note, ouvre une nouvelle ligne à chaque boucle, avec métronome.
-- Une note suivie par doigt ou par touche (`recHolds`). Notes simultanées sur un même pas = accord (`recWrite`). La boucle ne rejoue pas une note qu'on vient d'entendre en direct (`rec.fresh`). Moment joué corrigé du délai du geste (`recPos`). Le son pendant la prise est celui de la relecture (`holdVoice(b, v, true)`).
+- Une note suivie par doigt ou par touche (`recHolds`). Notes simultanées sur un même pas = accord (`recWrite`). La boucle ne rejoue pas une note qu'on vient d'entendre en direct (`rec.fresh`), et un tour où l'on n'a encore rien joué reste muet (sinon la ligne du tour d'avant se rejouait, #47).
+- Timing : quand la prise démarre sur la première note, le premier temps de la boucle est l'instant exact de cette note (`play(at)`). Le moment joué vient de `getOutputTimestamp` (ce qu'on entendait au moment du geste, retard de sortie compris), avec repli sur `outputLatency` (`recPos`).
+- Son pendant la prise = son de la relecture (`holdVoice(b, v, true)`) : les instruments qui résonnent (piano, guitares…) résonnent jusqu'au bout comme à la relecture, les autres s'arrêtent au relâchement avec le même relâchement R (#43).
 
 ### Import de code Strudel
 - `parseStrudel` → `expandExpr` → `sectionFromExpr` → `exprToBlocks` → `applyMethods`.
