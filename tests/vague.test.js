@@ -2,8 +2,9 @@
 const { openApp, melo } = require('./lib');
 async function watch(url, blocks) {
   const p = await openApp(url, { project: { stacks: [{ id: 'st', title: 'T', x: 0, y: 0, muted: false, blocks }] } });
-  if (!(await p.evaluate(() => document.body.classList.contains('is-playing')))) { await p.click('#play'); }
-  await p.waitForTimeout(2200);   /* l'énergie de la démo du lancement doit d'abord retomber */
+  /* pause puis lecture : on repart du projet testé, sans l'élan de la démo du lancement */
+  if (await p.evaluate(() => document.body.classList.contains('is-playing'))) await p.click('#play');
+  await p.waitForTimeout(200); await p.click('#play'); await p.waitForTimeout(700);
   const r = await p.evaluate(() => new Promise(res => {
     const out = { jy: [], amp: [] }, t0 = performance.now();
     (function f(){
