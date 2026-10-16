@@ -4223,6 +4223,24 @@ palette.addEventListener('click', function(){ requestAnimationFrame(syncPalH); }
 /* ---------- Démos : une est tirée au hasard à chaque ouverture, et sert de musique de fond ---------- */
 var DEMOS = [
   {
+    id: "djdave",
+    name: "DJ_Dave",
+    bpm: 150,
+    /* D'après un set de DJ_Dave (808 week) : rythme « HR main », charley en jux, arpège qui change d'accord à chaque mesure.
+       Sons synthétisés (pas de dirt-samples) ; en plus : la Voyelle sur l'arpège, un chœur « ooh » et une basse 808 calée sur le kick. */
+    code: `setcps(150/60/4)
+stack(
+  s("bd ~ ~ ~ ~ ~ ~ bd ~ ~ bd ~ ~ ~ bd ~").bank("RolandTR808").shape(.3),
+  s("~ cp ~ cp").bank("RolandTR808").lpf(3000).gain(.35),
+  s("hh hh hh ~ ~ hh hh hh hh hh hh hh hh hh hh ~").bank("RolandTR808").room(sine.range(.1, .4)).gain(.4).jux(rev),
+  note("<[f3 c4 ~ f3 c4 ~ f3 c4 ~ f3 c4 ~ f3 c4 ~ f3] [a3 e4 ~ a3 e4 ~ a3 e4 ~ a3 e4 ~ a3 e4 ~ a3] [d3 a3 ~ d3 a3 ~ d3 a3 ~ d3 a3 ~ d3 a3 ~ d3] [e3 b3 ~ e3 b3 ~ e3 b3 ~ e3 b3 ~ e3 b3 ~ e3]>")
+    .s("square").vowel("o").decay(.4).sustain(0).lpf(sine.range(400, 5000).slow(8)).room(.5).gain(.3),
+  note("<[f3,a3,c4] [a3,c4,e4] [d3,f3,a3] [e3,g3,b3]>").s("gm_voice_oohs").room(.6).gain(.3),
+  note("<[f1 ~ ~ ~ ~ ~ ~ f1 ~ ~ f1 ~ ~ ~ f1 ~] [a1 ~ ~ ~ ~ ~ ~ a1 ~ ~ a1 ~ ~ ~ a1 ~] [d1 ~ ~ ~ ~ ~ ~ d1 ~ ~ d1 ~ ~ ~ d1 ~] [e1 ~ ~ ~ ~ ~ ~ e1 ~ ~ e1 ~ ~ ~ e1 ~]>")
+    .s("sine").decay(.9).sustain(0).shape(.35).gain(.7)
+)`,
+  },
+  {
     id: "lofi",
     name: "Lo-fi Chill",
     bpm: 80,
