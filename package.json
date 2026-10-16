@@ -1,0 +1,11 @@
+{
+  "name": "blocktobeat",
+  "private": true,
+  "description": "BlockToBeat : les tests (le site lui-même n'a pas besoin de build).",
+  "scripts": {
+    "test": "node tests/run.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

@@ -194,16 +194,23 @@ body.is-playing .edge-light{opacity:1}
 #exportBtn.busy svg{animation:expbusy .9s ease-in-out infinite}
 @keyframes expbusy{50%{transform:translateY(3px)}}
 .s-lines{display:flex;flex-direction:column;gap:4px;padding:2px 0}
-.roll{position:relative;display:flex;flex-direction:column;gap:4px;padding:6px 0;margin:2px 0 2px 8px;touch-action:none;
+/* la ligne d'un piano roll prend la place des anciennes lignes, mêmes couleurs */
+.roll{display:flex;flex-direction:column;gap:6px;padding:4px 0;touch-action:none}
+.roll-row{display:flex;align-items:stretch;gap:6px;padding:3px 6px 3px 3px;border-radius:12px;background:var(--note-2)}
+.roll-row.is-sel{box-shadow:0 0 0 2px var(--fg)}
+.roll-grip{flex:none;width:24px;color:var(--note-ink)}
+.roll-body{position:relative;display:flex;flex-direction:column;gap:3px;padding:3px 0;border-radius:9px;background-color:rgba(30,18,56,.92);
   background-image:linear-gradient(90deg,rgba(205,182,255,.35) 1px,transparent 1px),linear-gradient(90deg,rgba(205,182,255,.12) 1px,transparent 1px);background-size:var(--cyc) 100%,var(--beat) 100%}
-.roll-lane{position:relative;height:32px;border-radius:9px;background:rgba(30,18,56,.55);cursor:copy}
-.roll-lane.roll-add{height:22px;background:transparent;border:1px dashed rgba(205,182,255,.3);box-sizing:border-box}
-.roll-note{position:absolute;top:3px;height:26px;box-sizing:border-box;padding:0 12px 0 7px;border-radius:7px;background:rgb(var(--heat));color:#170A13;font-family:var(--f-body);font-weight:800;font-size:12px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab}
+.roll-lane{position:relative;height:30px;cursor:copy}
+.roll-lane.roll-add{height:16px;margin:0 3px;border-radius:6px;border:1px dashed rgba(205,182,255,.28);box-sizing:border-box}
+.roll-note.is-cont{border-top-left-radius:2px;border-bottom-left-radius:2px}
+.roll-note.is-open{border-top-right-radius:2px;border-bottom-right-radius:2px;padding-right:4px}
+.roll-note{position:absolute;top:2px;height:26px;box-sizing:border-box;padding:0 12px 0 7px;border-radius:7px;background:rgb(var(--heat));color:#170A13;font-family:var(--f-body);font-weight:800;font-size:12px;line-height:26px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;cursor:grab}
 .roll-note.is-chord{box-shadow:inset 0 0 0 2px rgba(23,10,19,.35)}
 .roll-note.is-on{filter:brightness(1.35);box-shadow:0 0 12px rgb(var(--heat))}
 .roll-grab{position:absolute;right:0;top:0;bottom:0;width:10px;border-radius:0 7px 7px 0;background:rgba(23,10,19,.25);cursor:ew-resize}
 .roll-head{position:absolute;top:0;bottom:0;left:0;width:2px;background:var(--fg);box-shadow:0 0 8px var(--fg);pointer-events:none;z-index:2;display:none}
-body.is-playing .roll-head{display:block}
+body.is-playing .roll-head.is-here{display:block}
 .s-line{display:flex;align-items:center;gap:4px}
 .s-ln{flex:none;align-self:stretch;min-width:18px;padding:0 3px;border:0;border-radius:6px;background:transparent;color:inherit;font-family:var(--f-mono);font-size:10px;font-weight:800;opacity:.6;text-align:center;cursor:pointer}
 .s-ln.is-sel{opacity:1;background:var(--fg);color:var(--sound-ink)}
@@ -974,7 +981,7 @@ var stretch = null;
 viewport.addEventListener('pointerdown', function(e){
   if (dragSrcOf(e.target) || e.target.closest('select,input,label')) return;
   if (e.pointerType==='mouse' && e.button!==0) return;
-  var rl = !multi && pts.size===0 && e.target.closest && e.target.closest('.roll-note, .roll-lane');
+  var rl = !multi && pts.size===0 && e.target.closest && e.target.closest('.roll-note, .roll-lane, .roll-body');
   if (rl && startRoll(e, rl)) return;
   var sc = !multi && pts.size===0 && e.target.closest && e.target.closest('.b-line .cell');
   if (sc){
@@ -998,13 +1005,17 @@ function startPinch(){
 }
 /* ---------- Gestes du piano roll (#46) ---------- */
 var rollG = null, rollCursor = {};
-function rollCycleAt(e, rollEl){ var r = rollEl.getBoundingClientRect(); return (e.clientX - r.left)/V.z/ROLL_CYCLE_PX; }
+function rollCycleAt(e){
+  var el = document.elementFromPoint(e.clientX, e.clientY), body = el && el.closest && el.closest('.roll-body'); if (!body) return -1;
+  var row = +body.parentNode.dataset.row, r = body.getBoundingClientRect();
+  return row + Math.max(0, Math.min(.9999, (e.clientX - r.left)/V.z/ROLL_CYCLE_PX));
+}
 function startRoll(e, el){
   var rollEl = el.closest('.roll'), b = rollEl && findBlock(rollEl.dataset.s, rollEl.dataset.b); if (!b) return false;
   var note = el.closest('.roll-note'), ni = note ? +note.dataset.ni : -1;
   if (note && !b.notes[ni]) return false;
   rollG = {pid:e.pointerId, s:rollEl.dataset.s, b:b.id, ni:ni, mode: !note ? 'add' : e.target.closest('.roll-grab') ? 'stretch' : 'move',
-    x0:e.clientX, y0:e.clientY, c0:rollCycleAt(e, rollEl), t0: note ? b.notes[ni].t : 0, d0: note ? b.notes[ni].d : 0, active:false};
+    x0:e.clientX, y0:e.clientY, c0:rollCycleAt(e), t0: note ? b.notes[ni].t : 0, d0: note ? b.notes[ni].d : 0, active:false};
   pts.set(e.pointerId, {x:e.clientX, y:e.clientY}); pan = null;
   return true;
 }
@@ -1032,7 +1043,7 @@ function rollEnd(e){
   if (g.ni >= 0){ openNotePicker(g.s, g.b, g.ni); return; }
   /* toucher un vide : une note d'un pas, là où on a touché */
   var st = 1/rollSnap(b), t = Math.floor(g.c0/st + ROLL_EPS)*st;
-  if (t < 0 || t >= rollLen(b) - ROLL_EPS) return;
+  if (g.c0 < 0 || t < 0 || t >= rollLen(b) - ROLL_EPS) return;
   var v = rollLastV[b.id] || '0', ni = b.notes.length;
   mutate(function(){ findBlock(g.s, g.b).notes.push({t:t, d:st, v:v}); });
   preview(findBlock(g.s, g.b), v);
@@ -1274,19 +1285,42 @@ function rollLabel(b, v){
   if (String(v).indexOf(',') > -1){ var ci = chordInfo(b, v); return ci.name || v; }
   return degName(b, +v).replace(/-?\d+$/, '');
 }
-function rollHTML(st, b){
-  var len = rollLen(b), W = len*ROLL_CYCLE_PX, snap = rollSnap(b);
-  var h = '<div class="roll" data-roll="1" data-drop="roll"'+attrs({s:st.id, b:b.id})+' style="width:'+W+'px;--cyc:'+ROLL_CYCLE_PX+'px;--beat:'+(ROLL_CYCLE_PX/4)+'px">';
-  h += '<i class="roll-head" aria-hidden="true"></i>';
-  rollLanes(b.notes).concat([[]]).forEach(function(idx, li, all){
-    h += '<div class="roll-lane'+(li === all.length - 1 ? ' roll-add' : '')+'" data-lane="'+li+'">';
-    idx.forEach(function(i){
-      var n = b.notes[i], chord = String(n.v).indexOf(',') > -1;
-      h += '<span class="roll-note'+(chord ? ' is-chord' : '')+'" data-ni="'+i+'" style="left:'+(n.t/len*W)+'px;width:'+Math.max(10, n.d/len*W - 2)+'px;--heat:'+heatRGB(String(n.v).split(',')[0])+'"'+
-        ' title="'+esc(chord ? chordInfo(b, n.v).notes : degName(b, +n.v))+'">'+esc(rollLabel(b, n.v))+'<i class="roll-grab" aria-hidden="true"></i></span>';
-    });
-    h += '</div>';
+/* Une ligne par tour, numérotée comme les anciennes lignes : toucher le numéro sélectionne le tour
+   (Supprimer, Vider, Dupliquer). Une note qui passe d'un tour à l'autre se dessine en deux morceaux. */
+function rollRowSegs(notes, r){
+  var segs = [];
+  notes.forEach(function(n, i){
+    var a = Math.max(n.t, r), e = Math.min(n.t + n.d, r + 1);
+    if (e - a > ROLL_EPS) segs.push({i:i, a:a, e:e, head: n.t >= r - ROLL_EPS, tail: n.t + n.d <= r + 1 + ROLL_EPS});
   });
+  segs.sort(function(x, y){ return x.a - y.a || x.e - y.e; });
+  var lanes = [];
+  segs.forEach(function(sg){
+    var ln = null;
+    for (var k=0;k<lanes.length;k++) if (lanes[k].end <= sg.a + ROLL_EPS){ ln = lanes[k]; break; }
+    if (!ln){ ln = {end:0, segs:[]}; lanes.push(ln); }
+    ln.segs.push(sg); ln.end = sg.e;
+  });
+  return lanes.map(function(l){ return l.segs; });
+}
+function rollHTML(st, b){
+  var len = rollLen(b), W = ROLL_CYCLE_PX, h = '<div class="roll" data-roll="1" data-drop="roll"'+attrs({s:st.id, b:b.id})+' style="--cyc:'+W+'px;--beat:'+(W/4)+'px">';
+  for (var r=0;r<len;r++){
+    h += '<div class="roll-row'+(selIs('line', st.id, b.id, r)?' is-sel':'')+'" data-row="'+r+'">'+
+      '<button type="button" class="l-grip roll-grip" data-act="rowsel"'+attrs({s:st.id, b:b.id, l:r})+' aria-label="Ligne '+(r+1)+' : sélectionner">'+(r+1)+'</button>'+
+      '<div class="roll-body" style="width:'+W+'px"><i class="roll-head" aria-hidden="true"></i>';
+    rollRowSegs(b.notes, r).concat([[]]).forEach(function(segs, li, all){
+      h += '<div class="roll-lane'+(li === all.length - 1 ? ' roll-add' : '')+'">';
+      segs.forEach(function(sg){
+        var n = b.notes[sg.i], chord = String(n.v).indexOf(',') > -1;
+        h += '<span class="roll-note'+(chord ? ' is-chord' : '')+(sg.head ? '' : ' is-cont')+(sg.tail ? '' : ' is-open')+'" data-ni="'+sg.i+'"'+
+          ' style="left:'+((sg.a - r)*W)+'px;width:'+Math.max(10, (sg.e - sg.a)*W - (sg.tail ? 2 : 0))+'px;--heat:'+heatRGB(String(n.v).split(',')[0])+'"'+
+          ' title="'+esc(chord ? chordInfo(b, n.v).notes : degName(b, +n.v))+'">'+(sg.head ? esc(rollLabel(b, n.v)) : '')+(sg.tail ? '<i class="roll-grab" aria-hidden="true"></i>' : '')+'</span>';
+      });
+      h += '</div>';
+    });
+    h += '</div></div>';
+  }
   return h + '</div>';
 }
 function stackHTML(st){
@@ -1343,7 +1377,7 @@ function renderCanvas(){
 var cellIdx = {}, lineIdx = {}, blockIdx = {}, nowOn = {}, linesOn = {}, rollIdx = {};
 function indexCanvas(){
   cellIdx = {}; lineIdx = {}; blockIdx = {}; nowOn = {}; linesOn = {}; rollIdx = {};
-  canvas.querySelectorAll('.roll').forEach(function(el){ rollIdx[el.dataset.b] = {head:el.querySelector('.roll-head'), notes:Array.prototype.slice.call(el.querySelectorAll('.roll-note'))}; });
+  canvas.querySelectorAll('.roll').forEach(function(el){ rollIdx[el.dataset.b] = {heads:Array.prototype.slice.call(el.querySelectorAll('.roll-head')), notes:Array.prototype.slice.call(el.querySelectorAll('.roll-note'))}; });
   canvas.querySelectorAll('.cell[data-key]').forEach(function(el){ cellIdx[el.dataset.key] = el; });
   canvas.querySelectorAll('.b-line').forEach(function(el){ lineIdx[el.dataset.lkey] = el; });
   canvas.querySelectorAll('.nblk[data-b], .row[data-b]').forEach(function(el){ if (!blockIdx[el.dataset.b]) blockIdx[el.dataset.b] = el; });
@@ -1353,7 +1387,7 @@ function validSel(){
   var st = findStack(sel.s); if (!st) return false;
   if (sel.k==='stack') return true;
   var b = findBlock(sel.s, sel.b); if (!b) return false;
-  if (sel.k==='line') return b.type!=='code' && sel.l < blockLines(b).length;
+  if (sel.k==='line') return b.type!=='code' && sel.l < (isRoll(b) ? rollLen(b) : blockLines(b).length);
   return true;
 }
 /* Supprimer : toujours en premier, une poubelle rouge, pour ne jamais avoir à faire défiler la barre */
@@ -1393,9 +1427,10 @@ function renderActionBar(){
       (b.type!=='code' ? '<button type="button" class="ab-btn" data-ab="clear"'+((isRoll(b) ? !b.notes.length : blockLines(b).every(function(ln){ return ln.every(function(x){ return x==='~'; }); }))?' disabled':'')+'>Vider</button>' : '')+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   } else {
-    var nb = findBlock(sel.s, sel.b), NL = blockLines(nb);
-    h = trashBtn('del', 'Supprimer la ligne', NL.length<2)+'<span class="ab-label">Ligne '+(sel.l+1)+'</span>'+
-      '<button type="button" class="ab-btn" data-ab="clear"'+(NL[sel.l].every(function(x){ return x==='~'; })?' disabled':'')+'>Vider</button>'+
+    var nb = findBlock(sel.s, sel.b), NL = isRoll(nb) ? null : blockLines(nb);
+    var rowEmpty = NL ? NL[sel.l].every(function(x){ return x==='~'; }) : !rollRowNotes(nb, sel.l).length;
+    h = trashBtn('del', 'Supprimer la ligne', NL ? NL.length<2 : rollLen(nb)<2)+'<span class="ab-label">Ligne '+(sel.l+1)+'</span>'+
+      '<button type="button" class="ab-btn" data-ab="clear"'+(rowEmpty?' disabled':'')+'>Vider</button>'+
       '<button type="button" class="ab-btn" data-ab="dup">Dupliquer</button>';
   }
   bar.innerHTML = h + '<button type="button" class="ab-btn close" data-ab="close" aria-label="Fermer la sélection">✕</button>';
@@ -2903,7 +2938,11 @@ function frame(){
       if (b.muted || b.type==='code' || !soloAllows(st, b)) return;
       var F = fxOf(b), bp = pos*speedOf(b), k = Math.floor(bp), f = bp - k;
       function idx(N){ var i = Math.floor(f*N); return F.rev ? N-1-i : i; }
-      if (isRoll(b)){ var rl = rollLen(b), an = sNow ? Math.round(sNow.map[st.id].start*speedOf(b)) : 0; rollPh[b.id] = {ph:(((bp - an) % rl) + rl) % rl, b:b}; return; }
+      if (isRoll(b)){
+        var rl = rollLen(b), an = sNow ? Math.round(sNow.map[st.id].start*speedOf(b)) : 0, rph = (((bp - an) % rl) + rl) % rl;
+        if (rec.on && b._rc0 != null){ rph = bp - b._rc0; if (rph < 0 || rph >= rl) return; }
+        rollPh[b.id] = {ph:rph, b:b}; return;
+      }
       if (b.type==='s'){ var SL = sLines(b), kk2 = sNow ? k - Math.round(sNow.map[st.id].start*speedOf(b)) : k, sli = ((kk2 % SL.length) + SL.length) % SL.length; if (SL[sli].length) want[b.id+':'+sli+':'+idx(SL[sli].length)] = 1; }
       else if (b.lines && b.lines.length){
         var kk = sNow ? k - Math.round(sNow.map[st.id].start*speedOf(b)) : k;
@@ -2920,7 +2959,7 @@ function frame(){
   for (key in wantLines) if (!linesOn[key]){ if (lineIdx[key]) lineIdx[key].classList.add('is-playing'); linesOn[key] = 1; }
   for (key in rollIdx){
     var RI = rollIdx[key], RP = rollPh[key];
-    if (RI.head) RI.head.style.left = RP ? (RP.ph*ROLL_CYCLE_PX)+'px' : '-10px';
+    RI.heads.forEach(function(hd, r){ var here = !!RP && Math.floor(RP.ph) === r; if (here) hd.style.left = ((RP.ph - r)*ROLL_CYCLE_PX)+'px'; if (hd._here !== here){ hd._here = here; hd.classList.toggle('is-here', here); } });
     RI.notes.forEach(function(el){ var n = RP && RP.b.notes[+el.dataset.ni], on = !!n && RP.ph >= n.t && RP.ph < n.t + n.d; if (el._on !== on){ el._on = on; el.classList.toggle('is-on', on); } });
   }
 }
@@ -3209,7 +3248,7 @@ viewport.addEventListener('click', function(e){
     renderCanvas(); renderActionBar(); return;
   }
   if (d.act==='cell') openCellPicker(a);
-  if (d.act==='sline'){ selectFrom(a); return; }
+  if (d.act==='sline' || d.act==='rowsel'){ selectFrom(a); return; }
   if (d.act==='rootpick') openRootPicker(a);
   if (d.act==='fxfold'){ var fb = findBlock(d.s, d.b); if (fb){ fb.fxFold = !fb.fxFold; persist(); renderCanvas(); } return; }
   else if (d.act==='fx') openFxPop(a);
@@ -3275,6 +3314,12 @@ bar.addEventListener('click', function(e){
   } else {
     /* ligne d'un bloc Mélo ou d'un bloc Son à plusieurs lignes */
     var nb = findBlock(sel.s, sel.b), li = sel.l, NL = blockLines(nb).slice();
+    if (isRoll(nb)){
+      if (a==='clear'){ mutate(function(){ rollRowOp(nb, li, 'clear'); }); toast('Ligne vidée. Annuler pour la récupérer.'); }
+      if (a==='dup'){ if (rollLen(nb) >= ROLL_MAX_LEN){ toast('Une phrase dure au plus '+ROLL_MAX_LEN+' tours.'); return; } mutate(function(){ rollRowOp(nb, li, 'dup'); sel = {k:'line', s:sel.s, b:sel.b, l:li+1}; }); }
+      if (a==='del' && rollLen(nb) > 1) mutate(function(){ rollRowOp(nb, li, 'del'); sel = null; });
+      return;
+    }
     if (a==='addstep') mutate(function(){ if (NL[li].length<16) NL[li].push('~'); });
     if (a==='clear'){ mutate(function(){ NL[li] = NL[li].map(function(){ return '~'; }); setBlockLines(nb, NL); }); toast('Ligne vidée. Annuler pour la récupérer.'); }
     if (a==='dup') mutate(function(){ NL.splice(li+1, 0, NL[li].slice()); setBlockLines(nb, NL); sel = {k:'line', s:sel.s, b:sel.b, l:li+1}; });
@@ -3370,6 +3415,24 @@ palette.addEventListener('click', function(e){
   palChord = !palChord; refreshPads();
   if (palChord) preview(selBlock() && selBlock().type==='n' ? selBlock() : recNoteTemplate(), '0,2,4');
 });
+/* Opérations sur un tour du piano roll (ce que faisait une ligne) */
+function rollRowNotes(b, r){ return b.notes.filter(function(n){ return n.t >= r - ROLL_EPS && n.t < r + 1 - ROLL_EPS; }); }
+function rollRowOp(b, r, op){
+  var inRow = function(n){ return n.t >= r - ROLL_EPS && n.t < r + 1 - ROLL_EPS; };
+  if (op==='clear'){
+    b.notes = b.notes.filter(function(n){ return !inRow(n); });
+    b.notes.forEach(function(n){ if (n.t < r && n.t + n.d > r) n.d = r - n.t; });   /* une note du tour d'avant s'arrête au début de la ligne */
+  } else if (op==='dup'){
+    var copy = b.notes.filter(inRow).map(function(n){ return {t:n.t + 1, d:n.d, v:n.v}; });
+    b.notes.forEach(function(n){ if (n.t >= r + 1 - ROLL_EPS) n.t += 1; });
+    b.notes = b.notes.concat(copy); b.len = rollLen(b) + 1;
+  } else if (op==='del'){
+    b.notes = b.notes.filter(function(n){ return !inRow(n); });
+    b.notes.forEach(function(n){ if (n.t < r && n.t + n.d > r) n.d = r - n.t; if (n.t >= r + 1 - ROLL_EPS) n.t -= 1; });
+    b.len = Math.max(1, rollLen(b) - 1);
+  }
+  b.notes.forEach(function(n){ n.d = Math.min(n.d, b.len - n.t); });
+}
 /* « Ligne » sur un piano roll : la phrase s'allonge d'un tour (ce que faisait une ligne de plus) */
 function rollGrow(b){
   if (rollLen(b) >= ROLL_MAX_LEN){ toast('Une phrase dure au plus '+ROLL_MAX_LEN+' tours.'); return; }
@@ -3378,8 +3441,10 @@ function rollGrow(b){
 }
 /* Pads de l'onglet Notes sur un piano roll : chaque note s'ajoute après la précédente, ~ laisse un pas de silence */
 function rollPaletteTap(b, p){
-  var st = 1/rollSnap(b), end = b.notes.reduce(function(m, n){ return Math.max(m, n.t + n.d); }, 0), at = Math.max(end, rollCursor[b.id] || 0);
-  if (at + st > rollLen(b) + ROLL_EPS){ toast('La phrase est pleine : allonge-la avec le menu « tours » du bloc.'); return; }
+  var row = sel && sel.k==='line' && sel.b===b.id ? sel.l : -1, lim = row > -1 ? row + 1 : rollLen(b);
+  var st = 1/rollSnap(b), end = (row > -1 ? rollRowNotes(b, row) : b.notes).reduce(function(m, n){ return Math.max(m, n.t + n.d); }, row > -1 ? row : 0);
+  var cur = rollCursor[b.id], at = Math.max(end, cur != null && cur <= lim && (row < 0 || cur >= row) ? cur : 0);
+  if (at + st > lim + ROLL_EPS){ toast(row > -1 ? 'Cette ligne est pleine.' : 'La phrase est pleine : ajoute une ligne avec « Ligne » ou le menu « tours ».'); return; }
   if (p.k==='rest'){ rollCursor[b.id] = at + st; return; }
   var bid = b.id;
   mutate(function(){ findBlock(null, bid).notes.push({t:at, d:st, v:String(p.v)}); });
@@ -3712,7 +3777,7 @@ function performDrop(n, d, e){
         b = findBlock(nd.s, nd.b); if (!b) break;
         if (p.k==='blk'){ b.len = Math.min(ROLL_MAX_LEN, rollLen(b) + 1); break; }
         if (p.k==='rest') break;
-        var rs = 1/rollSnap(b), rt = Math.floor(rollCycleAt(e, n)/rs + ROLL_EPS)*rs;
+        var rs = 1/rollSnap(b), rt = Math.floor(rollCycleAt(e)/rs + ROLL_EPS)*rs;
         if (rt >= 0 && rt < rollLen(b) - ROLL_EPS) b.notes.push({t:rt, d:rs, v:String(p.v)});
         break; }
       case 'title': {
@@ -3880,7 +3945,7 @@ function recBlockFor(st, v){
     if (!b){ b = {id:uid(), type:'s', muted:false, steps:Array(16).fill('~'), fx:[]}; st.blocks.push(b); }
   } else {
     var I = recNoteTemplate();
-    b = {id:uid(), type:'n', muted:false, root:I.root, scale:I.scale, synth:I.synth, fx:I.fx, lines:[Array(16).fill('~')], _rc0:null};
+    b = {id:uid(), type:'n', muted:false, root:I.root, scale:I.scale, synth:I.synth, fx:I.fx, notes:[], len:1, _rc0:null};   /* écrit directement en notes (#46) */
     st.blocks.push(b);
   }
   rec.blocks[key] = b.id;
@@ -3942,14 +4007,6 @@ function recPos(ev){
   if (heard == null) heard = ctx.currentTime - (now - evT)/1000 - (ctx.outputLatency || 0);
   return (heard - startT)/cycleDur();
 }
-/* Deux notes posées ensemble sur le même pas pendant ce tour forment un accord, au lieu que la seconde efface la première */
-function recWrite(line, i, v, fkey){
-  var old = line[i], isNote = /^-?\d+(,-?\d+)*$/;
-  if (rec.fresh[fkey] && isNote.test(old) && isNote.test(v)){
-    line[i] = old.split(',').concat(String(v).split(',')).filter(function(x, j, all){ return all.indexOf(x)===j; }).sort(function(x, y){ return x - y; }).join(',');
-  } else { setHold(line, i, 0); line[i] = v; }
-  rec.fresh[fkey] = 1;
-}
 function recHit(v, chip, hid, ev){
   rec.mode = /^-?\d+(,-?\d+)*$/.test(v) ? 'notes' : 'drums';
   if (chip){ chip.classList.add('hit'); clearTimeout(chip._t); chip._t = setTimeout(function(){ chip.classList.remove('hit'); }, 110); }
@@ -3967,9 +4024,10 @@ function recHit(v, chip, hid, ev){
       /* la note tenue sonne tout de suite ; elle est écrite une fois la boucle lancée pour ne pas la jouer deux fois */
       var stop0 = holdVoice(b0, v, true);
       play(ctx.currentTime + .005);
-      b0._rc0 = 0; b0.lines[0][0] = v;
+      b0._rc0 = 0;
+      var n0 = {t:0, d:1/16, v:String(v)}; b0.notes.push(n0);
       rec.fresh[b0.id+':0:0:0'] = 1;
-      recHolds[hid] = {b:b0, li:0, i:0, q0:0, sp:speedOf(b0), stop:stop0};
+      recHolds[hid] = {b:b0, n:n0, row:0, q0:0, sp:speedOf(b0), stop:stop0};
     }
     sel = {k:'stack', s:st0.id};
     persist(); renderCanvas(); renderCode();
@@ -3990,11 +4048,15 @@ function recHit(v, chip, hid, ev){
     if (li >= REC_MAX_LINES){
       li = li % REC_MAX_LINES;
       /* au-delà de 8 tours, on réécrit une ancienne ligne : elle repart vide à la première note du tour */
-      if (b._rcWrap !== cyc && b.lines[li]){ b.lines[li] = Array(16).fill('~'); b._rcWrap = cyc; }
+      if (b._rcWrap !== cyc){ rollRowOp(b, li, 'clear'); b._rcWrap = cyc; }
     }
-    while (b.lines.length <= li) b.lines.push(Array(16).fill('~'));
-    recWrite(b.lines[li], i, v, b.id+':'+li+':'+i+':'+cyc);
-    recHolds[hid] = {b:b, li:li, i:i, q0:cyc*N + i, sp:sp, stop:stopV};
+    b.len = Math.max(rollLen(b), li + 1);
+    var nt = li + i/N, fkey = b.id+':'+li+':'+i+':'+cyc, nn = b.notes.filter(function(x){ return Math.abs(x.t - nt) < ROLL_EPS; })[0];
+    /* deux notes posées ensemble sur le même pas pendant ce tour forment un accord ; sinon la nouvelle remplace l'ancienne */
+    if (nn && rec.fresh[fkey]) nn.v = mergeChord(nn.v, v);
+    else { b.notes = b.notes.filter(function(x){ return Math.abs(x.t - nt) >= ROLL_EPS; }); nn = {t:nt, d:1/N, v:String(v)}; b.notes.push(nn); }
+    rec.fresh[fkey] = 1;
+    recHolds[hid] = {b:b, n:nn, row:li, q0:cyc*N + i, sp:sp, stop:stopV};
   }
   sel = {k:'stack', s:st.id};
   recRender();
@@ -4005,10 +4067,12 @@ function recRelease(hid, ev){
   delete recHolds[hid];
   if (h.stop) h.stop();
   if (!playing || !ctx) return;
-  var len = Math.round(Math.max(0, recPos(ev))*h.sp*16) - h.q0;
-  var line = h.b.lines[h.li];
-  if (len < 2 || !line || line[h.i]==='~' || line[h.i]==='_') return;
-  setHold(line, h.i, Math.max(holdLen(line, h.i), Math.min(len - 1, 15 - h.i)));
+  var steps = Math.round(Math.max(0, recPos(ev))*h.sp*16) - h.q0, n = h.n;
+  if (steps < 2 || h.b.notes.indexOf(n) < 0) return;
+  /* la note dure jusqu'au relâchement, sans dépasser sa ligne ni la note suivante (jeu lié) */
+  var end = Math.min(n.t + steps/16, h.row + 1);
+  h.b.notes.forEach(function(x){ if (x !== n && x.t > n.t + ROLL_EPS && x.t < end) end = x.t; });
+  n.d = Math.max(n.d, end - n.t);
   recRender();
 }
 function recReleaseAll(){ Object.keys(recHolds).forEach(function(k){ recRelease(k); }); }
@@ -4035,10 +4099,9 @@ function finishTake(){
     if (!('_rc0' in b)) return;
     var r0 = b._rc0; delete b._rc0; delete b._rcWrap;
     if (r0 == null) return;
-    var L = b.lines.length, out = [];
-    for (var j=0;j<L;j++) out[j] = b.lines[(((j - r0) % L) + L) % L];
-    b.lines = out;
-    toRoll(b);
+    /* la ligne jouée au tour k de la boucle doit rester celle qui se rejoue au tour k : on fait tourner les lignes */
+    var L = rollLen(b);
+    b.notes.forEach(function(n){ var r = Math.floor(n.t + ROLL_EPS); n.t = (((r + r0) % L) + L) % L + (n.t - r); });
   }); });
 }
 function stopRec(){
@@ -4095,8 +4158,10 @@ function scheduleRoll(st, b, F, sp, late, b0, b1, cd, pass){
     var song = songOn(), sa = song ? songAt(k/sp) : null, sk = sa && sa.map[st.id];
     if (song && !sk) continue;
     var anchor = song ? Math.round(sk.start*sp) : 0, ph = (((k - anchor) % len) + len) % len;
+    if (rec.on && b._rc0 != null){ ph = k - b._rc0; if (ph < 0 || ph >= len || ph >= REC_MAX_LINES) continue; }
     b.notes.forEach(function(n){
       if (n.t < ph - ROLL_EPS || n.t >= ph + 1 - ROLL_EPS) return;
+      if (rec.on && rec.fresh[b.id+':'+ph+':'+Math.round((n.t - ph)*16)+':'+k]) return;   /* déjà entendue en direct pendant la prise */
       var f = n.t - ph, d = n.d;
       if (pass.rev) f = Math.max(0, 1 - f - Math.min(d, 1));
       var pos = k + f;
