@@ -12,10 +12,10 @@ module.exports = async ({ url, check }) => {
     });
     if (seen[r.title]) { await p.close2(); continue; }
     seen[r.title] = 1;
-    await p.evaluate(() => { window.__n = 0; }); await p.waitForTimeout(1500);
+    await p.evaluate(() => { window.__n = 0; }); await p.waitForTimeout(3500);   /* l'Ambient est lente : un accord tous les deux tours */
     const sons = await p.evaluate(() => window.__n);
     check(r.code === 0 && r.n >= 4 && r.melo >= 1 && r.libre && sons > 0 && !p.errors.length,
-      'démo « ' + r.title + ' » : ' + r.n + ' blocs, ' + r.code + ' bloc code, mélodie libre : ' + (r.libre ? 'oui' : 'non') + ', ' + sons + ' sons en 1,5 s' + (p.errors.length ? ', erreur : ' + p.errors[0] : ''));
+      'démo « ' + r.title + ' » : ' + r.n + ' blocs, ' + r.code + ' bloc code, mélodie libre : ' + (r.libre ? 'oui' : 'non') + ', ' + sons + ' sons en 3,5 s' + (p.errors.length ? ', erreur : ' + p.errors[0] : ''));
     await p.close2();
   }
   check(Object.keys(seen).length >= 10, Object.keys(seen).length + ' démos différentes vues');
